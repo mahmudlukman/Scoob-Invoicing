@@ -1,0 +1,25 @@
+import { Navigate, Outlet } from "react-router-dom";
+import DashboardLayout from "../layout/DashboardLayout";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../@types";
+import type { ReactNode } from "react";
+
+interface ProtectedRouteProps {
+  children?: ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <DashboardLayout activeMenu="">
+      {children ? children : <Outlet />}{" "}
+    </DashboardLayout>
+  );
+};
+
+export default ProtectedRoute;

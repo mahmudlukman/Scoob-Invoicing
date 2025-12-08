@@ -11,3 +11,8 @@ export const validatePassword = (password: string) => {
     return "";
 };
 
+export function getInitials(name?: string): string {
+  if (!name || !name.trim()) return "U";
+  return name.trim().charAt(0).toUpperCase();
+}
+
