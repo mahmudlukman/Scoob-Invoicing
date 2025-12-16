@@ -1,4 +1,6 @@
-import { FileText, Github, Linkedin, Twitter } from "lucide-react";
+import { FileText } from "lucide-react";
+import { FaGithub, FaLinkedin } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 
 const FooterLink = ({ href, to, children }: { href?: string; to?: string; children: React.ReactNode }) => {
@@ -96,13 +98,13 @@ const Footer = () => {
             </p>
             <div className="flex space-x-4">
               <SocialLink href="#">
-                <Twitter className="w-5 h-5" />
+                <FaXTwitter className="w-5 h-5" />
               </SocialLink>
               <SocialLink href="#">
-                <Github className="w-5 h-5" />
+                <FaGithub className="w-5 h-5" />
               </SocialLink>
               <SocialLink href="#">
-                <Linkedin className="w-5 h-5" />
+                <FaLinkedin className="w-5 h-5" />
               </SocialLink>
             </div>
           </div>
