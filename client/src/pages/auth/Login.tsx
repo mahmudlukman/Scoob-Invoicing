@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { validateEmail } from "../../utils/helper";
+// import { validateEmail } from "../../utils/helper";
 import { useLoginMutation } from "../../redux/features/auth/authApi";
 import { useNavigate } from "react-router-dom";
 import Input from "../../components/inputs/Input";
@@ -29,7 +29,7 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateEmail(email)) {
+    if (!email) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -41,16 +41,10 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
     setError(null);
 
     try {
-      const response = await login({ email, password }).unwrap();
+      await login({ email, password }).unwrap();
       closeModal();
 
-      const role = response.user?.role;
-
-      if (role === "admin" || role === "editor") {
-        navigate("/admin/dashboard");
-      } else {
-        navigate("/user/my-generators-map-view");
-      }
+      navigate("/dashboard");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (err.data?.message) {

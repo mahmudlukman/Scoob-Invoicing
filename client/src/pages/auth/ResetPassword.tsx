@@ -66,42 +66,46 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="w-[90vw] md:w-[33vw] p-7 flex flex-col justify-center">
-      <h3 className="text-lg font-semibold text-black">Reset Password</h3>
-      <p className="text-xs text-slate-700 mt-[5px] mb-6">
-        Please enter your new password details
-      </p>
+    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-gray-50">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-7">
+        <h3 className="text-lg font-semibold text-black text-center">
+          Reset Password
+        </h3>
+        <p className="text-xs text-slate-700 mt-[5px] mb-6 text-center">
+          Please enter your new password details
+        </p>
 
-      <form onSubmit={handleSubmit}>
-        <Input
-          value={password}
-          onChange={({ target }) => setPassword(target.value)}
-          label="New Password"
-          placeholder="Min 8 Characters"
-          type="password"
-        />
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={password}
+            onChange={({ target }) => setPassword(target.value)}
+            label="New Password"
+            placeholder="Min 8 Characters"
+            type="password"
+          />
 
-        <Input
-          value={confirmPassword}
-          onChange={({ target }) => setConfirmPassword(target.value)}
-          label="Confirm Password"
-          placeholder="Re-enter your password"
-          type="password"
-        />
+          <Input
+            value={confirmPassword}
+            onChange={({ target }) => setConfirmPassword(target.value)}
+            label="Confirm Password"
+            placeholder="Re-enter your password"
+            type="password"
+          />
 
-        {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
-        {success && (
-          <p className="text-green-600 text-xs pb-2.5 py-2">{success}</p>
-        )}
+          {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
+          {success && (
+            <p className="text-green-600 text-xs pb-2.5 py-2">{success}</p>
+          )}
 
-        <button
-          type="submit"
-          className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer"
-          disabled={isLoading}
-        >
-          {isLoading ? "Resetting Password..." : "Reset Password"}
-        </button>
-      </form>
+          <button
+            type="submit"
+            className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all duration-200 hover:scale-105 hover:shadow-lg text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading}
+          >
+            {isLoading ? "Resetting Password..." : "Reset Password"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

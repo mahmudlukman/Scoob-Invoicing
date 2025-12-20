@@ -5,7 +5,7 @@ import ProfileDropdown from "../layout/ProfileDropdown";
 import Button from "../ui/Button";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../@types";
-import { getInitials } from "../../utils/helper";
+// import { getInitials } from "../../utils/helper";
 import { useLogoutMutation } from "../../redux/features/auth/authApi";
 import Modal from "../ui/Modal";
 import Login from "../../pages/auth/Login";
@@ -85,7 +85,7 @@ const Header = () => {
                   onToggle={() => {
                     setProfileDropdownOpen(!profileDropdownOpen);
                   }}
-                  avatar={getInitials(user?.name)}
+                  // avatar={getInitials(user?.name)}
                   companyName={user?.name || ""}
                   email={user?.email || ""}
                   onLogout={handleLogout}

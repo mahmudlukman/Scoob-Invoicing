@@ -5,9 +5,7 @@ dotenv.config();
 const config = {
   PORT: process.env.PORT || 8000,
   NODE_ENV: process.env.NODE_ENV,
-  WHITELIST_ORIGINS: [
-    "http://localhost:5173",
-  ],
+  WHITELIST_ORIGINS: process.env.WHITELIST_ORIGINS!,
   FRONTEND_URL: process.env.FRONTEND_URL!,
   DB_URL: process.env.DB_URL!,
   ACTIVATION_SECRET: process.env.ACTIVATION_SECRET!,

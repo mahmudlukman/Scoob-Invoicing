@@ -8,6 +8,10 @@ import helmet from "helmet";
 import limiter from "./utils/rateLimiter";
 import type { CorsOptions } from "cors";
 import config from "./config";
+import authRouter from "./routes/auth.route";
+import userRouter from "./routes/user.route";
+import invoiceRouter from "./routes/invoice.route";
+import aiRouter from "./routes/ai.route";
 
 export const app = express();
 // Load environment variables from .env file
@@ -53,23 +57,11 @@ app.use(helmet());
 app.use(limiter);
 
 // routes
-// app.use(
-//   "/api/v1",
-//   authRouter,
-//   userRouter,
-//   cartRouter,
-//   productRouter,
-//   orderRouter,
-//   paymentRouter,
-//   addressRouter,
-//   couponRouter,
-//   analyticsRouter
-// );
+app.use("/api/v1", authRouter, userRouter, invoiceRouter, aiRouter);
 
 // testing API
 app.get("/test", (req: Request, res: Response, next: NextFunction) => {
   res.status(200).json({ success: true, message: "API is working" });
 });
-
 
 app.use(errorMiddleware);

@@ -53,11 +53,9 @@ const UserSchema: Schema<IUser> = new Schema(
     businessLogo: {
       public_id: {
         type: String,
-        required: true,
       },
       url: {
         type: String,
-        required: true,
       },
     },
     address: {

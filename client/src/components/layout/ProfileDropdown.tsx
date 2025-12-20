@@ -4,22 +4,22 @@ import { useNavigate } from 'react-router-dom'
 interface ProfileDropdownProps {
     isOpen: boolean
     onToggle: () => void
-    avatar?: string
+    companyLogo?: string
     companyName: string
     email: string
     onLogout: () => void
 }
 
 const ProfileDropdown = ({
-    isOpen, onToggle, avatar, companyName, email, onLogout,
+    isOpen, onToggle, companyLogo, companyName, email, onLogout,
 }: ProfileDropdownProps) => {
 
     const navigate = useNavigate()
 
   return <div className='relative'>
     <button onClick={onToggle} className='flex items-center space-x-3 rounded-xl hover:bg-gray-50 transition-colors duration-200'>
-        {avatar ? (
-            <img src={avatar} alt="Avatar" className='h-9 w-9 object-cover rounded-xl' />
+        {companyLogo ? (
+            <img src={companyLogo} alt="Avatar" className='h-9 w-9 object-cover rounded-xl' />
         ) : (
             <div className='h-8 w-8 bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl flex items-center justify-center'>
                 <span className='text-white font-semibold text-sm'>

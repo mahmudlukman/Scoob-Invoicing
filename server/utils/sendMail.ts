@@ -23,7 +23,7 @@ const sendMail = async (options: EmailOptions): Promise<void> => {
 
   // Send with Resend
   await resend.emails.send({
-    from: "Happy Import Hub <onboarding@happinessani.com>",
+    from: "Scoob Invoice <onboarding@happinessani.com>",
     to: email,
     subject,
     html,
@@ -31,4 +31,3 @@ const sendMail = async (options: EmailOptions): Promise<void> => {
 };
 
 export default sendMail;
-

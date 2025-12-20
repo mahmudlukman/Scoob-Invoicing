@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { validateEmail } from "../../utils/helper";
+// import { validateEmail } from "../../utils/helper";
 import { useRegisterMutation } from "../../redux/features/auth/authApi";
 import Input from "../../components/inputs/Input";
 
@@ -38,7 +38,7 @@ const SignUp = ({
       return;
     }
 
-    if (!validateEmail(email)) {
+    if (!email) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -86,7 +86,7 @@ const SignUp = ({
             value={fullName}
             onChange={({ target }) => setFullName(target.value)}
             label="Full Name"
-            placeholder="John"
+            placeholder="John Doe"
             type="text"
           />
 

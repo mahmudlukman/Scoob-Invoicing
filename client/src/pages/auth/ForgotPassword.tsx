@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { validateEmail } from "../../utils/helper";
+// import { validateEmail } from "../../utils/helper";
 import { useForgotPasswordMutation } from "../../redux/features/auth/authApi";
 import Input from "../../components/inputs/Input";
 
@@ -18,7 +18,7 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateEmail(email)) {
+    if (!email) {
       setError("Please enter a valid email address.");
       return;
     }
