@@ -10,8 +10,8 @@ import {
 const invoiceRouter = express.Router();
 
 invoiceRouter.post("/create-invoice", isAuthenticated, createInvoice);
-invoiceRouter.get("/invoices", getInvoices);
-invoiceRouter.get("/invoice/:id", getInvoiceById);
+invoiceRouter.get("/invoices", isAuthenticated, getInvoices);
+invoiceRouter.get("/invoice/:id", isAuthenticated, getInvoiceById);
 invoiceRouter.put("/update-invoice/:id", isAuthenticated, updateInvoice);
 invoiceRouter.delete("/delete-invoice/:id", isAuthenticated, deleteInvoice);
 

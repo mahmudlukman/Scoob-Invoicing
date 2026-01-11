@@ -81,10 +81,10 @@ export const getInvoiceById = catchAsyncError(
 
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-    // check if the invoice belongs to the user
-    if (invoice.user._id.toString() !== req.user?._id) {
-      return next(new ErrorHandler("Not authorized", 400));
-    }
+    // // check if the invoice belongs to the user
+    // if (invoice.user._id.toString() !== req.user?._id) {
+    //   return next(new ErrorHandler("Not authorized", 400));
+    // }
 
     res.status(200).json({
       success: true,

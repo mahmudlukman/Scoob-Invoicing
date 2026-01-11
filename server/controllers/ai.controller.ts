@@ -126,7 +126,7 @@ export const sendReminderEmail = catchAsyncError(
     await sendMail({
       email: invoice.billTo.email,
       subject: subject,
-      template: "reminder-email.ejs",
+      template: "invoice-reminder.ejs",
       data: {
         clientName: invoice.billTo.clientName,
         invoiceNumber: invoice.invoiceNumber,
