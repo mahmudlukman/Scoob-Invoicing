@@ -11,6 +11,7 @@ import CreateInvoice from "./pages/Invoices/CreateInvoice";
 import InvoiceDetail from "./pages/Invoices/InvoiceDetail";
 import ProfilePage from "./pages/Profile/ProfilePage";
 import NotFound from "./pages/NotFound";
+import CustomizeInvoice from "./pages/Invoices/CustomizeInvoice";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
@@ -28,6 +29,7 @@ const router = createBrowserRouter([
       { path: "invoices", element: <AllInvoices /> },
       { path: "invoices/new", element: <CreateInvoice /> },
       { path: "invoice/:id", element: <InvoiceDetail /> },
+      { path: "invoice/customize", element: <CustomizeInvoice /> },
       { path: "profile", element: <ProfilePage /> },
     ],
   },

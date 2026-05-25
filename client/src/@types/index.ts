@@ -10,6 +10,18 @@ export interface BusinessLogo {
   _id: string;
 }
 
+export interface InvoiceColorPalette {
+  primary: string;
+  secondary: string;
+  background: string;
+}
+
+export interface InvoicePreferences {
+  templateId: string;
+  paletteId: string;
+  colorPalette: InvoiceColorPalette;
+}
+
 export interface User {
   _id: string;
   name: string;
@@ -20,7 +32,20 @@ export interface User {
   phone: string;
   role: string;
   isActive?: boolean;
+  invoicePreferences?: InvoicePreferences; 
 }
+
+// export interface User {
+//   _id: string;
+//   name: string;
+//   email: string;
+//   businessLogo?: BusinessLogo;
+//   businessName: string;
+//   address: string;
+//   phone: string;
+//   role: string;
+//   isActive?: boolean;
+// }
 
 export interface ServerError {
   status?: number;
@@ -34,13 +59,29 @@ export interface Invoice {
   _id: string;
   status: string;
   total: number;
+  subtotal: number;
+  taxTotal: number;
   invoiceDate: string;
   dueDate: string;
   invoiceNumber: string;
-  billTo: {
-    clientName: string;
-  };
+  paymentTerms: string;
+  notes?: string;
+  items: InvoiceItem[];
+  billFrom: BillInfo;
+  billTo: BillInfo;
 }
+
+// export interface Invoice {
+//   _id: string;
+//   status: string;
+//   total: number;
+//   invoiceDate: string;
+//   dueDate: string;
+//   invoiceNumber: string;
+//   billTo: {
+//     clientName: string;
+//   };
+// }
 
 export interface InvoiceItem {
   name: string;
@@ -56,6 +97,7 @@ export interface BillInfo {
   email: string;
   address: string;
   phone: string;
+  businessLogo?: string;
 }
 
 export interface InvoiceFormData {
@@ -70,4 +112,7 @@ export interface InvoiceFormData {
   subtotal?: number;
   taxTotal?: number;
   total?: number;
+  status?: string;
 }
+
+export type InvoiceTemplateData = Invoice | InvoiceFormData;

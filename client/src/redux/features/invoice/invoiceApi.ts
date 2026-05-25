@@ -37,6 +37,14 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
+    updateInvoicePreferences: builder.mutation({
+      query: (data) => ({
+        url: "/update-invoice-preferences",
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["User"],
+    }),
     deleteInvoice: builder.mutation({
       query: (id) => ({
         url: `delete-invoice/${id}`,
@@ -53,5 +61,6 @@ export const {
   useGetAllInvoicesQuery,
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
+  useUpdateInvoicePreferencesMutation,
   useDeleteInvoiceMutation,
 } = userApi;

@@ -18,9 +18,11 @@ import {
   useDeleteInvoiceMutation,
   useUpdateInvoiceMutation,
 } from "../../redux/features/invoice/invoiceApi";
-import type { Invoice } from "../../@types";
+import type { Invoice, ServerError } from "../../@types";
 import ReminderModel from "../../components/invoices/ReminderModel";
 import CreateWithAIModel from "../../components/invoices/CreateWithAIModel";
+import { addThousandsSeparator } from "../../utils/helper";
+import toast from "react-hot-toast";
 
 const AllInvoices = () => {
   const navigate = useNavigate();
@@ -29,17 +31,15 @@ const AllInvoices = () => {
   const [deleteInvoice] = useDeleteInvoiceMutation();
   const [updateInvoice] = useUpdateInvoiceMutation();
 
-  console.log(invoicesData)
-
   const [statusChangeLoading, setStatusChangeLoading] = useState<string | null>(
-    null
+    null,
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
-    null
+    null,
   );
 
   const invoices = useMemo(() => {
@@ -50,8 +50,13 @@ const AllInvoices = () => {
     if (window.confirm("Are you sure you want to delete this invoice?")) {
       try {
         await deleteInvoice(id).unwrap();
-      } catch (error) {
-        console.error("Failed to delete invoice:", error);
+      } catch (err: unknown) {
+        const serverError = err as ServerError;
+        const errorMessage =
+          serverError.data?.message ||
+          serverError.message ||
+          "Failed to delete invoice";
+        toast.error(errorMessage);
       }
     }
   };
@@ -63,8 +68,13 @@ const AllInvoices = () => {
       const updatedInvoice = { ...invoice, status: newStatus };
 
       await updateInvoice({ id: invoice._id, data: updatedInvoice }).unwrap();
-    } catch (error) {
-      console.error("Failed to update invoice status:", error);
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      const errorMessage =
+        serverError.data?.message ||
+        serverError.message ||
+        "Failed to update invoice status";
+      toast.error(errorMessage);
     } finally {
       setStatusChangeLoading(null);
     }
@@ -78,20 +88,20 @@ const AllInvoices = () => {
   const filteredInvoices = useMemo(() => {
     return invoices
       .filter(
-        (invoice) => statusFilter === "All" || invoice.status === statusFilter
+        (invoice) => statusFilter === "All" || invoice.status === statusFilter,
       )
       .filter(
         (invoice) =>
           invoice.invoiceNumber
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          invoice.billTo.clientName
+          (invoice.billTo.clientName ?? "")
             .toLowerCase()
-            .includes(searchTerm.toLowerCase())
+            .includes(searchTerm.toLowerCase()),
       )
       .sort(
         (a, b) =>
-          new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
+          new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime(),
       );
   }, [invoices, searchTerm, statusFilter]);
 
@@ -249,7 +259,7 @@ const AllInvoices = () => {
                       onClick={() => navigate(`/invoice/${invoice._id}`)}
                       className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer"
                     >
-                      ₦{invoice.total.toFixed(2)}
+                      ₦{addThousandsSeparator(invoice.total)}
                     </td>
 
                     <td
@@ -265,8 +275,8 @@ const AllInvoices = () => {
                           invoice.status === "Paid"
                             ? "bg-emerald-100 text-emerald-800"
                             : invoice.status === "Pending"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-red-100 text-red-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-red-100 text-red-800"
                         }`}
                       >
                         {invoice.status}

@@ -1,4 +1,4 @@
-import { AlertCircle, Edit, Mail, Printer } from "lucide-react";
+import { AlertCircle, Edit, Mail, Paintbrush, Printer } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -10,14 +10,16 @@ import {
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
 } from "../../redux/features/invoice/invoiceApi";
-import type {
-  InvoiceFormData,
-  InvoiceItem,
-  RootState,
-  ServerError,
-} from "../../@types";
-import { addThousandsSeparator } from "../../utils/helper";
+import type { InvoiceFormData, RootState, ServerError } from "../../@types";
 import Loading from "../../components/ui/Loading";
+import { useReactToPrint } from "react-to-print";
+import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
+
+const DEFAULT_PALETTE = {
+  primary: "#16A34A",
+  secondary: "#15803D",
+  background: "#F0FDF4",
+};
 
 const InvoiceDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,13 +28,16 @@ const InvoiceDetail = () => {
 
   const { user } = useSelector((state: RootState) => state.auth);
 
+  const templateId = user?.invoicePreferences?.templateId ?? "01";
+  const colorPalette =
+    user?.invoicePreferences?.colorPalette ?? DEFAULT_PALETTE;
+
   const { data: invoiceResponse, isLoading, isError } = useGetInvoiceQuery(id);
   const [updateInvoice] = useUpdateInvoiceMutation();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
 
-  // Extract invoice from response - handle both {invoice: {...}} and direct invoice object
   const invoice = invoiceResponse?.invoice || invoiceResponse;
 
   const handleUpdate = async (formData: InvoiceFormData) => {
@@ -42,21 +47,20 @@ const InvoiceDetail = () => {
       setIsEditing(false);
     } catch (err: unknown) {
       const serverError = err as ServerError;
-      const errorMessage =
+      toast.error(
         serverError?.data?.message ||
-        serverError?.message ||
-        "Failed to update Invoice";
-      toast.error(errorMessage);
+          serverError?.message ||
+          "Failed to update Invoice",
+      );
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = useReactToPrint({
+    contentRef: invoiceRef,
+    documentTitle: `Invoice-${invoice?.invoiceNumber}`,
+  });
 
-  if (isLoading) {
-    return <Loading />;
-  }
+  if (isLoading) return <Loading />;
 
   if (isError || !invoice || !invoice.billFrom || !invoice.billTo) {
     return (
@@ -81,6 +85,15 @@ const InvoiceDetail = () => {
     return <CreateInvoice existingInvoice={invoice} onSave={handleUpdate} />;
   }
 
+  // Merge the business logo URL from the user profile into billFrom
+  const invoiceWithLogo = {
+    ...invoice,
+    billFrom: {
+      ...invoice.billFrom,
+      businessLogo: user?.businessLogo?.url,
+    },
+  };
+
   return (
     <>
       <ReminderModel
@@ -88,6 +101,7 @@ const InvoiceDetail = () => {
         onClose={() => setIsReminderModalOpen(false)}
         invoiceId={id!}
       />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 print:hidden">
         <h1 className="text-2xl font-semibold text-slate-900 mb-4 sm:mb-0">
           Invoice{" "}
@@ -95,7 +109,7 @@ const InvoiceDetail = () => {
             {invoice.invoiceNumber}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {invoice.status !== "Paid" && (
             <Button
               variant="secondary"
@@ -107,213 +121,38 @@ const InvoiceDetail = () => {
           )}
           <Button
             variant="secondary"
+            onClick={() => navigate("/invoice/customize")}
+            icon={Paintbrush}
+          >
+            Customize
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => setIsEditing(true)}
             icon={Edit}
           >
             Edit
           </Button>
-          <Button variant="primary" onClick={handlePrint} icon={Printer}>
+          <Button
+            variant="primary"
+            onClick={() => handlePrint()}
+            icon={Printer}
+          >
             Print or Download
           </Button>
         </div>
       </div>
 
-      <div id="invoice-content-wrapper">
-        <div
-          ref={invoiceRef}
-          id="invoice-preview"
-          className="bg-white p-6 sm:p-8 md:p-12 rounded-lg shadow-md border border-slate-200"
-        >
-          <div className="flex flex-col sm:flex-row justify-between items-start pb-8 border-b border-slate-200">
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900">INVOICE</h2>
-              <p className="text-slate-500 mt-2">#{invoice.invoiceNumber}</p>
-            </div>
-            {/* Business Logo at Top Center */}
-            {user?.businessLogo?.url && (
-              <img
-                src={user.businessLogo.url}
-                alt="Business Logo"
-                className="h-20 w-auto object-contain"
-              />
-            )}
-            <div className="text-left sm:text-right mt-4 sm:mt-0">
-              <p className="text-sm text-slate-500">Status</p>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  invoice.status === "Paid"
-                    ? "bg-emerald-100 text-emerald-800"
-                    : invoice.status === "Pending"
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-red-100 text-red-800"
-                }`}
-              >
-                {invoice.status}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 my-8">
-            <div>
-              <h3 className="font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Bill From
-              </h3>
-              <p className="font-semibold text-slate-800">
-                {invoice.billFrom?.businessName || "N/A"}
-              </p>
-              <p className="text-slate-600">
-                {invoice.billFrom?.address || "N/A"}
-              </p>
-              <p className="text-slate-600">
-                {invoice.billFrom?.email || "N/A"}
-              </p>
-              <p className="text-slate-600">
-                {invoice.billFrom?.phone || "N/A"}
-              </p>
-            </div>
-            <div className="sm:text-right">
-              <h3 className="font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Bill To
-              </h3>
-              <p className="font-semibold text-slate-800">
-                {invoice.billTo?.clientName || "N/A"}
-              </p>
-              <p className="text-slate-600">
-                {invoice.billTo?.address || "N/A"}
-              </p>
-              <p className="text-slate-600">{invoice.billTo?.email || "N/A"}</p>
-              <p className="text-slate-600">{invoice.billTo?.phone || "N/A"}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 my-8">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Invoice Date
-              </h3>
-              <p className="font-medium text-slate-800">
-                {new Date(invoice.invoiceDate).toLocaleDateString()}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Due Date
-              </h3>
-              <p className="font-medium text-slate-800">
-                {new Date(invoice.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Payment Terms
-              </h3>
-              <p className="font-medium text-slate-800">
-                {invoice.paymentTerms}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Item
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Qty
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {invoice.items?.map((item: InvoiceItem, index: number) => (
-                  <tr key={index}>
-                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-slate-900">
-                      {item.name}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-center font-medium text-slate-600">
-                      {item.quantity}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-medium text-slate-600">
-                      ₦{addThousandsSeparator(item.unitPrice)}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-medium text-slate-900">
-                      ₦
-                      {addThousandsSeparator(
-                        item.total ||
-                          item.quantity *
-                            item.unitPrice *
-                            (1 + (item.taxPercent || 0) / 100)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex justify-end mt-8">
-            <div className="w-full max-w-sm space-y-3">
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>Subtotal</span>
-                <span>₦{addThousandsSeparator(invoice.subtotal || 0)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>Tax</span>
-                <span>₦{addThousandsSeparator(invoice.taxTotal || 0)}</span>
-              </div>
-              <div className="flex justify-between font-semibold text-lg text-slate-900 border-t border-slate-200 pt-3 mt-3">
-                <span>Total</span>
-                <span>₦{addThousandsSeparator(invoice.total || 0)}</span>
-              </div>
-            </div>
-          </div>
-
-          {invoice.notes && (
-            <div className="mt-8 pt-8 border-t border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                Notes
-              </h3>
-              <p className="text-sm text-slate-600">{invoice.notes}</p>
-            </div>
-          )}
+      <div className="rounded-lg overflow-hidden shadow-md border border-slate-200 print:shadow-none print:border-none">
+        <div ref={invoiceRef}>
+          <RenderInvoice
+            templateId={templateId}
+            invoice={invoiceWithLogo}
+            colorPalette={colorPalette}
+            containerWidth={0}
+          />
         </div>
       </div>
-
-      <style>
-        {`
-          @page {
-            padding: 10px;
-          }
-          @media print {
-          body * {
-            visibility: hidden;
-          }
-          #invoice-content-wrapper, #invoice-content-wrapper * {
-            visibility: visible;
-          }
-          #invoice-content-wrapper {
-            position: absolute;
-            left: 0;
-            top: 0;
-            right: 0;
-            width: 100%
-          }
-          #invoice-preview {
-            box-shadow: none;
-            border: none;
-            border-radius: 0;
-            padding: 0;
-          }
-          }
-        `}
-      </style>
     </>
   );
 };

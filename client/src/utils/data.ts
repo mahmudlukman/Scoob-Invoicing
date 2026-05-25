@@ -112,9 +112,16 @@ export const NAVIGATION_MENU = [
     icon: Plus,
     visible: ["user", "admin"],
   },
-  { 
-    id: "profile", 
-    name: "Profile", 
-    icon: User, 
-    visible: ["user", "admin"] },
+  {
+    id: "invoice/customize",
+    name: "Customize Invoice",
+    icon: Sparkles,
+    visible: ["user", "admin"],
+  },
+  {
+    id: "profile",
+    name: "Profile",
+    icon: User,
+    visible: ["user", "admin"],
+  },
 ];

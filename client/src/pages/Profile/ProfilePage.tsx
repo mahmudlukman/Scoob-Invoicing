@@ -61,8 +61,8 @@ const ProfilePage = () => {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (max 1MB)
+    if (file.size > 1 * 1024 * 1024) {
       toast.error("Image size should be less than 5MB");
       return;
     }
@@ -87,14 +87,13 @@ const ProfilePage = () => {
     try {
       const updateData: UpdateProfileData = { ...formData };
 
-      // Only include businessLogo if a new one was uploaded
       if (logoFile) {
         updateData.businessLogo = logoFile;
       }
 
       await updateUserProfile({ data: updateData }).unwrap();
       toast.success("Profile updated successfully!");
-      setLogoFile(null); // Reset logo file after successful upload
+      setLogoFile(null); 
     } catch (err: unknown) {
       const serverError = err as ServerError;
       const errorMessage =

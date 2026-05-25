@@ -49,7 +49,7 @@ export const createInvoice = catchAsyncError(
 
     await invoice.save();
     res.status(201).json(invoice);
-  }
+  },
 );
 
 // @desc        Get all invoices of logged-in user
@@ -60,13 +60,13 @@ export const getInvoices = catchAsyncError(
     const user = await User.findById(req.user?._id);
     const invoices = await Invoice.find({ user }).populate(
       "user",
-      "name email"
+      "name email",
     );
     res.status(200).json({
       success: true,
       invoices,
     });
-  }
+  },
 );
 
 // @desc        Get single invoices by ID
@@ -76,10 +76,10 @@ export const getInvoiceById = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const invoice = await Invoice.findById(req.params.id).populate(
       "user",
-      "name email"
+      "name email",
     );
 
-    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
     // // check if the invoice belongs to the user
     // if (invoice.user._id.toString() !== req.user?._id) {
@@ -90,7 +90,7 @@ export const getInvoiceById = catchAsyncError(
       success: true,
       invoice,
     });
-  }
+  },
 );
 
 // @desc        Update invoice
@@ -139,7 +139,7 @@ export const updateInvoice = catchAsyncError(
         taxTotal,
         total,
       },
-      { new: true }
+      { new: true },
     );
     if (!updatedInvoice)
       return res.status(404).json({ message: "Invoice not found" });
@@ -149,7 +149,28 @@ export const updateInvoice = catchAsyncError(
       success: true,
       updatedInvoice,
     });
-  }
+  },
+);
+
+// @desc    Update invoice preferences
+// @route   PATCH /api/v1/update-invoice-preferences
+// @access  Private
+export const updateInvoicePreferences = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { templateId, paletteId, colorPalette } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user?._id,
+      { invoicePreferences: { templateId, paletteId, colorPalette } },
+      { new: true },
+    );
+
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    res
+      .status(200)
+      .json({ success: true, invoicePreferences: user.invoicePreferences });
+  },
 );
 
 // @desc        Delete invoice
@@ -160,5 +181,5 @@ export const deleteInvoice = catchAsyncError(
     const invoice = await Invoice.findByIdAndDelete(req.params.id);
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
     res.json({ message: "Invoice deleted successfully" });
-  }
+  },
 );

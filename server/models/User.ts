@@ -13,6 +13,18 @@ interface Logo {
   url: string;
 }
 
+interface InvoiceColorPalette {
+  primary: string;
+  secondary: string;
+  background: string;
+}
+
+interface InvoicePreferences {
+  templateId: string;
+  paletteId: string;
+  colorPalette: InvoiceColorPalette;
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -23,6 +35,7 @@ export interface IUser extends Document {
   phone: string;
   role: string;
   isActive?: boolean;
+  invoicePreferences: InvoicePreferences;
   resetPasswordToken?: string;
   resetPasswordTime?: Date;
   getJwtToken(): string;
@@ -75,10 +88,19 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Boolean,
       default: true,
     },
+    invoicePreferences: {
+      templateId: { type: String, default: "01" },
+      paletteId: { type: String, default: "green" },
+      colorPalette: {
+        primary: { type: String, default: "#16A34A" },
+        secondary: { type: String, default: "#15803D" },
+        background: { type: String, default: "#F0FDF4" },
+      },
+    },
     resetPasswordToken: String,
     resetPasswordTime: Date,
   },
-  { minimize: false, timestamps: true }
+  { minimize: false, timestamps: true },
 );
 
 // Hash password
@@ -100,13 +122,13 @@ UserSchema.methods.getJwtToken = function (): string {
 // JWT Refresh Token (long-lived)
 UserSchema.methods.getRefreshToken = function (): string {
   return jwt.sign({ id: this._id }, config.REFRESH_TOKEN_SECRET as string, {
-    expiresIn: config.REFRESH_TOKEN_EXPIRES || "7d", // Long-lived: 7 days
+    expiresIn: config.REFRESH_TOKEN_EXPIRES || "7d",
   });
 };
 
 // Compare password
 UserSchema.methods.comparePassword = async function (
-  enteredPassword: string
+  enteredPassword: string,
 ): Promise<boolean> {
   return await bcrypt.compare(enteredPassword, this.password);
 };
