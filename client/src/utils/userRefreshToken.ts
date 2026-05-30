@@ -9,7 +9,6 @@ export const useTokenRefresh = () => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Only set up auto-refresh if user is logged in
     if (!user) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -17,18 +16,14 @@ export const useTokenRefresh = () => {
       return;
     }
 
-    // Refresh token every 14 minutes (access token expires in 15 minutes)
-    const refreshInterval = 14 * 60 * 1000; // 14 minutes in milliseconds
+    const refreshInterval = 14 * 60 * 1000;
 
     intervalRef.current = setInterval(() => {
-      console.log("Auto-refreshing token...");
       refreshToken({})
         .unwrap()
-        .then(() => console.log("Token refreshed successfully"))
-        .catch((error) => console.error("Token refresh failed:", error));
+        .catch(() => {});
     }, refreshInterval);
 
-    // Cleanup on unmount
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);

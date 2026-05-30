@@ -15,7 +15,8 @@ const TemplateOne = ({
   colorPalette,
   containerWidth,
 }: InvoiceTemplateOneProps) => {
-  const themeColors = (colorPalette ?? []).length > 0 ? colorPalette! : DEFAULT_THEME;
+  const themeColors =
+    (colorPalette ?? []).length > 0 ? colorPalette! : DEFAULT_THEME;
 
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [baseWidth, setBaseWidth] = useState(800);
@@ -34,13 +35,13 @@ const TemplateOne = ({
     invoice.status === "Paid"
       ? "#16A34A"
       : invoice.status === "Pending"
-      ? "#D97706"
-      : "#DC2626";
+        ? "#D97706"
+        : "#DC2626";
 
   return (
     <div
       ref={invoiceRef}
-      className="bg-white"
+      className="bg-white relative"
       style={{
         transform: containerWidth > 0 ? `scale(${scale})` : "none",
         transformOrigin: "top left",
@@ -71,7 +72,9 @@ const TemplateOne = ({
                 className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 text-white text-xl font-bold"
                 style={{ backgroundColor: themeColors[1] }}
               >
-                {(invoice.billFrom?.businessName ?? "B").charAt(0).toUpperCase()}
+                {(invoice.billFrom?.businessName ?? "B")
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
             )}
             <p
@@ -99,8 +102,12 @@ const TemplateOne = ({
             <p className="text-xs text-slate-700 leading-relaxed">
               {invoice.billFrom?.address}
             </p>
-            <p className="text-xs text-slate-600 mt-1">{invoice.billFrom?.email}</p>
-            <p className="text-xs text-slate-600 mt-0.5">{invoice.billFrom?.phone}</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {invoice.billFrom?.email}
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {invoice.billFrom?.phone}
+            </p>
           </div>
 
           {/* To */}
@@ -117,8 +124,12 @@ const TemplateOne = ({
             <p className="text-xs text-slate-600 mt-1 leading-relaxed">
               {invoice.billTo?.address}
             </p>
-            <p className="text-xs text-slate-600 mt-1">{invoice.billTo?.email}</p>
-            <p className="text-xs text-slate-600 mt-0.5">{invoice.billTo?.phone}</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {invoice.billTo?.email}
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {invoice.billTo?.phone}
+            </p>
           </div>
 
           {/* Dates */}
@@ -237,7 +248,7 @@ const TemplateOne = ({
                       item.total ??
                         item.quantity *
                           item.unitPrice *
-                          (1 + (item.taxPercent ?? 0) / 100)
+                          (1 + (item.taxPercent ?? 0) / 100),
                     )}
                   </td>
                 </tr>
@@ -290,6 +301,26 @@ const TemplateOne = ({
 
       {/* Bottom accent strip */}
       <div className="h-1 w-full" style={{ backgroundColor: themeColors[2] }} />
+      {/* PAID watermark */}
+      {invoice.status === "Paid" && (
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          style={{ zIndex: 10 }}
+        >
+          <span
+            className="text-[160px] font-black uppercase tracking-widest select-none"
+            style={{
+              color: themeColors[1],
+              opacity: 0.08,
+              transform: "rotate(-35deg)",
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            PAID
+          </span>
+        </div>
+      )}
     </div>
   );
 };

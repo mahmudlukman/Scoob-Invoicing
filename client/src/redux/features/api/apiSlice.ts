@@ -25,8 +25,6 @@ const baseQueryWithReauth: BaseQueryFn<
 
   // If we get a 401 error, try to refresh the token
   if (result.error && result.error.status === 401) {
-    console.log("Access token expired, attempting refresh...");
-
     // Try to refresh the token
     const refreshResult = await baseQuery(
       {
@@ -39,8 +37,6 @@ const baseQueryWithReauth: BaseQueryFn<
     );
 
     if (refreshResult.data) {
-      console.log("Token refreshed successfully");
-
       // Type the refresh result data
       const refreshData = refreshResult.data as {
         accessToken: string;
@@ -58,7 +54,6 @@ const baseQueryWithReauth: BaseQueryFn<
       // Retry the original query with new token
       result = await baseQuery(args, api, extraOptions);
     } else {
-      console.log("Token refresh failed, logging out user");
       // Refresh failed - log out user
       api.dispatch(userLoggedOut());
     }
@@ -115,8 +110,7 @@ export const apiSlice = createApi({
               user: result.data.user,
             })
           );
-        } catch (error) {
-          console.error("refreshToken error:", error);
+        } catch {
           dispatch(userLoggedOut());
         }
       },

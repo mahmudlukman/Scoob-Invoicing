@@ -81,11 +81,6 @@ export const getInvoiceById = catchAsyncError(
 
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
-    // // check if the invoice belongs to the user
-    // if (invoice.user._id.toString() !== req.user?._id) {
-    //   return next(new ErrorHandler("Not authorized", 400));
-    // }
-
     res.status(200).json({
       success: true,
       invoice,
@@ -110,41 +105,42 @@ export const updateInvoice = catchAsyncError(
       status,
     } = req.body;
 
-    //  recalculate totals if item changed
-    let subtotal = 0;
-    let taxTotal = 0;
+    // Only recalculate totals if items were actually sent
+    let totalsUpdate = {};
     if (items && items.length > 0) {
+      let subtotal = 0;
+      let taxTotal = 0;
       items.forEach((item: IItem) => {
         subtotal += item.unitPrice * item.quantity;
         taxTotal +=
           (item.unitPrice * item.quantity * (item.taxPercent || 0)) / 100;
       });
+      const total = subtotal + taxTotal;
+      totalsUpdate = { items, subtotal, taxTotal, total };
     }
 
-    const total = subtotal + taxTotal;
+    // Only include fields that were actually provided in the request
+    const updateData = {
+      ...(invoiceNumber !== undefined && { invoiceNumber }),
+      ...(invoiceDate !== undefined && { invoiceDate }),
+      ...(dueDate !== undefined && { dueDate }),
+      ...(billFrom !== undefined && { billFrom }),
+      ...(billTo !== undefined && { billTo }),
+      ...(notes !== undefined && { notes }),
+      ...(paymentTerms !== undefined && { paymentTerms }),
+      ...(status !== undefined && { status }),
+      ...totalsUpdate,
+    };
 
     const updatedInvoice = await Invoice.findByIdAndUpdate(
       req.params.id,
-      {
-        invoiceNumber,
-        invoiceDate,
-        dueDate,
-        billFrom,
-        billTo,
-        items,
-        notes,
-        paymentTerms,
-        status,
-        subtotal,
-        taxTotal,
-        total,
-      },
+      updateData,
       { new: true },
     );
+
     if (!updatedInvoice)
       return res.status(404).json({ message: "Invoice not found" });
 
-    res.json(updatedInvoice);
     res.status(200).json({
       success: true,
       updatedInvoice,

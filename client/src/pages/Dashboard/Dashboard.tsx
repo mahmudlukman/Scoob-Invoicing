@@ -36,7 +36,7 @@ const Dashboard = () => {
     return [...invoices]
       .sort(
         (a, b) =>
-          new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime()
+          new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime(),
       )
       .slice(0, 5);
   }, [invoices]);
@@ -178,7 +178,7 @@ const Dashboard = () => {
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
-                      ₦{invoice.total.toFixed(2)}
+                      ₦{addThousandsSeparator(Number(invoice.total.toFixed(2)))}
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -187,8 +187,8 @@ const Dashboard = () => {
                           invoice.status === "Paid"
                             ? "bg-emerald-100 text-emerald-800"
                             : invoice.status === "Pending"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-red-100 text-red-800"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-red-100 text-red-800"
                         }`}
                       >
                         {invoice.status}

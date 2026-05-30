@@ -41,7 +41,7 @@ const TemplateTwo = ({
   return (
     <div
       ref={invoiceRef}
-      className="bg-white"
+      className="bg-white relative"
       style={{
         transform: containerWidth > 0 ? `scale(${scale})` : "none",
         transformOrigin: "top left",
@@ -321,6 +321,26 @@ const TemplateTwo = ({
           </div>
         )}
       </div>
+      {/* PAID watermark */}
+      {invoice.status === "Paid" && (
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          style={{ zIndex: 10 }}
+        >
+          <span
+            className="text-[160px] font-black uppercase tracking-widest select-none"
+            style={{
+              color: themeColors[1],
+              opacity: 0.08,
+              transform: "rotate(-35deg)",
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            PAID
+          </span>
+        </div>
+      )}
     </div>
   );
 };

@@ -65,16 +65,18 @@ const AllInvoices = () => {
     setStatusChangeLoading(invoice._id);
     try {
       const newStatus = invoice.status === "Paid" ? "Unpaid" : "Paid";
-      const updatedInvoice = { ...invoice, status: newStatus };
 
-      await updateInvoice({ id: invoice._id, data: updatedInvoice }).unwrap();
+      await updateInvoice({
+        id: invoice._id,
+        data: { status: newStatus },
+      }).unwrap();
     } catch (err: unknown) {
       const serverError = err as ServerError;
-      const errorMessage =
+      toast.error(
         serverError.data?.message ||
-        serverError.message ||
-        "Failed to update invoice status";
-      toast.error(errorMessage);
+          serverError.message ||
+          "Failed to update invoice status",
+      );
     } finally {
       setStatusChangeLoading(null);
     }
