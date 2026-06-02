@@ -32,7 +32,8 @@ export interface User {
   phone: string;
   role: string;
   isActive?: boolean;
-  invoicePreferences?: InvoicePreferences; 
+  invoicePreferences?: InvoicePreferences;
+  createdAt: string;
 }
 
 // export interface User {

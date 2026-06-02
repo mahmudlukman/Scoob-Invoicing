@@ -12,6 +12,7 @@ import authRouter from "./routes/auth.route";
 import userRouter from "./routes/user.route";
 import invoiceRouter from "./routes/invoice.route";
 import aiRouter from "./routes/ai.route";
+import analyticsRouter from "./routes/analytics.route";
 
 export const app = express();
 // Load environment variables from .env file
@@ -35,7 +36,7 @@ const corsOptions: CorsOptions = {
       // Reject requests from non-whitelisted origins
       callback(
         new Error(`CORS error: ${origin} is not allowed by CORS`),
-        false
+        false,
       );
     }
   },
@@ -47,7 +48,7 @@ app.use(cors({ ...corsOptions, credentials: true }));
 app.use(
   compression({
     threshold: 1024, // Only compress responses larger than 1KB
-  })
+  }),
 );
 
 // Use Helmet to enhance security by setting various HTTP headers
@@ -57,7 +58,14 @@ app.use(helmet());
 app.use(limiter);
 
 // routes
-app.use("/api/v1", authRouter, userRouter, invoiceRouter, aiRouter);
+app.use(
+  "/api/v1",
+  authRouter,
+  userRouter,
+  invoiceRouter,
+  aiRouter,
+  analyticsRouter,
+);
 
 // testing API
 app.get("/test", (req: Request, res: Response, next: NextFunction) => {

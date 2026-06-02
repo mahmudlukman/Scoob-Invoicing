@@ -6,6 +6,7 @@ import {
   Plus,
   Sparkles,
   User,
+  UserRoundCog,
 } from "lucide-react";
 
 export const FEATURES = [
@@ -109,7 +110,7 @@ export const NAVIGATION_MENU = [
   {
     id: "all-users",
     name: "All Users",
-    icon: User,
+    icon: UserRoundCog,
     visible: ["admin"] as const,
   },
   {

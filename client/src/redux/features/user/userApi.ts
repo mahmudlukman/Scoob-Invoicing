@@ -15,10 +15,16 @@ export const userApi = apiSlice.injectEndpoints({
       invalidatesTags: [{ type: "User", id: "LIST" }],
     }),
     getAllUsers: builder.query({
-      query: ({ page = 1, pageSize = 10 }) => ({
-        url: `get-users?page=${page}&pageSize=${pageSize}`,
+      query: ({
+        page = 1,
+        pageSize = 10,
+        search = "",
+        role = "all",
+        isActive = "all",
+      }) => ({
+        url: `get-users?page=${page}&pageSize=${pageSize}&search=${search}&role=${role}&isActive=${isActive}`,
         method: "GET",
-        credentials: "include" as const,
+        credentials: "include",
       }),
       providesTags: [{ type: "User", id: "LIST" }],
     }),
