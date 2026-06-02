@@ -6,7 +6,7 @@ import ProfileDropdown from "./ProfileDropdown";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../@types";
 import { useLogoutMutation } from "../../redux/features/auth/authApi";
-import { getInitials } from "../../utils/helper";
+// import { getInitials } from "../../utils/helper";
 
 interface NavigationItemType {
   id: string;
@@ -115,6 +115,10 @@ const DashboardLayout = ({
 
   const sidebarCollapsed = !isMobile && false;
 
+  const visibleMenuItems = NAVIGATION_MENU.filter((item) =>
+    item.visible.some((role) => role === user?.role),
+  );
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -145,7 +149,7 @@ const DashboardLayout = ({
 
         {/*  Navigation  */}
         <nav className="p-4 space-y-2">
-          {NAVIGATION_MENU.map((item) => (
+          {visibleMenuItems.map((item) => (
             <NavigationItem
               key={item.id}
               item={item}
@@ -214,7 +218,6 @@ const DashboardLayout = ({
               onToggle={() => {
                 setProfileDropdownOpen(!profileDropdownOpen);
               }}
-              avatar={getInitials(user?.name)}
               companyName={user?.name || ""}
               email={user?.email || ""}
               onLogout={handleLogout}

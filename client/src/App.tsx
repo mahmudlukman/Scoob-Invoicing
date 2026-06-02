@@ -12,6 +12,8 @@ import InvoiceDetail from "./pages/Invoices/InvoiceDetail";
 import ProfilePage from "./pages/Profile/ProfilePage";
 import NotFound from "./pages/NotFound";
 import CustomizeInvoice from "./pages/Invoices/CustomizeInvoice";
+import Analytics from "./pages/admin/analytics";
+import AllUsers from "./pages/admin/AllUsers";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
@@ -20,17 +22,21 @@ const router = createBrowserRouter([
 
   // admin protected routes
   {
-    element: <PrivateRoute />,
+    element: <PrivateRoute allowedRoles={["user", "admin"]} />,
     children: [
-      {
-        path: "dashboard",
-        element: <Dashboard />,
-      },
+      { path: "dashboard", element: <Dashboard /> },
       { path: "invoices", element: <AllInvoices /> },
       { path: "invoices/new", element: <CreateInvoice /> },
       { path: "invoice/:id", element: <InvoiceDetail /> },
       { path: "invoice/customize", element: <CustomizeInvoice /> },
       { path: "profile", element: <ProfilePage /> },
+    ],
+  },
+  {
+    element: <PrivateRoute allowedRoles={["admin"]} />,
+    children: [
+      { path: "analytics", element: <Analytics /> },
+      { path: "all-users", element: <AllUsers /> },
     ],
   },
   // user protected routes
