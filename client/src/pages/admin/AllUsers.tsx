@@ -1,23 +1,21 @@
 import { useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Loader2,
-  Search,
-  Users,
-  Shield,
-  UserCheck,
-  UserX,
-} from "lucide-react";
-
+import { AlertCircle, Loader2, Search, Users, Trash2 } from "lucide-react";
+import { format } from "date-fns";
 import Button from "../../components/ui/Button";
-import { useGetAllUsersQuery } from "../../redux/features/user/userApi";
-import type { User } from "../../@types";
+import {
+  useGetAllUsersQuery,
+  useUpdateUserStatusMutation,
+  useDeleteUserMutation,
+} from "../../redux/features/user/userApi";
+import type { ServerError, User } from "../../@types";
+import toast from "react-hot-toast";
 
 const AllUsers = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const [isActive, setIsActive] = useState("all");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useGetAllUsersQuery({
     page,
@@ -27,7 +25,94 @@ const AllUsers = () => {
     isActive,
   });
 
+  const [updateUserStatus] = useUpdateUserStatusMutation();
+  const [deleteUser] = useDeleteUserMutation();
+
   const users = useMemo(() => data?.users || [], [data]);
+
+  const handleStatusToggle = async (user: User) => {
+    try {
+      setActionLoading(user._id);
+
+      await updateUserStatus({
+        data: {
+          id: user._id,
+          role: user.role,
+          isActive: !user.isActive,
+        },
+      }).unwrap();
+      toast.success("User status updated");
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      const errorMessage =
+        serverError.data?.message ||
+        serverError.message ||
+        "Failed to update user status";
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRoleChange = async (user: User, newRole: "admin" | "user") => {
+    try {
+      setActionLoading(user._id);
+
+      await updateUserStatus({
+        data: {
+          id: user._id,
+          role: newRole,
+          isActive: user.isActive,
+        },
+      }).unwrap();
+      toast.success("User role updated");
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      const errorMessage =
+        serverError.data?.message ||
+        serverError.message ||
+        "Failed to update user role";
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    userId: string | null;
+  }>({
+    open: false,
+    userId: null,
+  });
+
+  const handleDeleteUser = async () => {
+    if (!deleteModal.userId) return;
+
+    try {
+      setActionLoading(deleteModal.userId);
+
+      await deleteUser(deleteModal.userId).unwrap();
+
+      toast.success("User deleted successfully");
+
+      setDeleteModal({
+        open: false,
+        userId: null,
+      });
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+
+      const errorMessage =
+        serverError.data?.message ||
+        serverError.message ||
+        "Failed to delete user";
+
+      toast.error(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -169,40 +254,61 @@ const AllUsers = () => {
                     <td className="px-6 py-4 text-slate-600">{user.email}</td>
 
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                          user.role === "admin"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        <Shield className="w-3 h-3" />
-                        {user.role}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={user.role}
+                          disabled={actionLoading === user._id}
+                          onChange={(e) =>
+                            handleRoleChange(
+                              user,
+                              e.target.value as "admin" | "user",
+                            )
+                          }
+                          className="border border-slate-200 rounded-md px-2 py-1 text-sm"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="user">User</option>
+                        </select>
+                      </div>
                     </td>
 
                     <td className="px-6 py-4">
-                      {user.isActive ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-600">
-                          <UserCheck className="w-4 h-4" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-red-600">
-                          <UserX className="w-4 h-4" />
-                          Inactive
-                        </span>
-                      )}
+                      <button
+                        disabled={actionLoading === user._id}
+                        onClick={() => handleStatusToggle(user)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          user.isActive ? "bg-emerald-500" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            user.isActive ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
                     </td>
 
                     <td className="px-6 py-4 text-slate-600">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {format(new Date(user.createdAt), "MMM d, yyyy")}
                     </td>
 
                     <td className="px-6 py-4 text-right">
-                      <Button size="small" variant="secondary">
-                        View
-                      </Button>
+                      <button
+                        onClick={() =>
+                          setDeleteModal({
+                            open: true,
+                            userId: user._id,
+                          })
+                        }
+                        disabled={actionLoading === user._id}
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {actionLoading === user._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -238,6 +344,51 @@ const AllUsers = () => {
           </div>
         )}
       </div>
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Delete User
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to delete this user? This action cannot be
+                undone.
+              </p>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    setDeleteModal({
+                      open: false,
+                      userId: null,
+                    })
+                  }
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteUser}
+                  disabled={actionLoading === deleteModal.userId}
+                >
+                  {actionLoading === deleteModal.userId ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </span>
+                  ) : (
+                    "Delete User"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -90,7 +90,7 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     invoicePreferences: {
       templateId: { type: String, default: "01" },
-      paletteId: { type: String, default: "green" },
+      paletteId: { type: String, default: "forest" },
       colorPalette: {
         primary: { type: String, default: "#16A34A" },
         secondary: { type: String, default: "#15803D" },

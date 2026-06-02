@@ -2,7 +2,7 @@
 
 @import "tailwindcss";
 
-@theme {
+:root {
   --font-display: "Outfit", sans-serif;
   --breakpoint-3xl: 1920px;
   --color-primary: #ff9324;

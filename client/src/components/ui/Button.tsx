@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { Loader2, type LucideIcon } from 'lucide-react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -25,6 +25,7 @@ const Button: React.FC<ButtonProps> = ({
     primary: "bg-blue-900 hover:bg-blue-800 text-white",
     secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200',
     ghost: 'bg-transparent hover:bg-slate-100 text-slate-700',
+    danger: 'bg-red-600 hover:bg-red-700 text-white border-red-600',
   };
   
   const sizeClasses: Record<ButtonSize, string> = {

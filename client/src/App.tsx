@@ -12,7 +12,7 @@ import InvoiceDetail from "./pages/Invoices/InvoiceDetail";
 import ProfilePage from "./pages/Profile/ProfilePage";
 import NotFound from "./pages/NotFound";
 import CustomizeInvoice from "./pages/Invoices/CustomizeInvoice";
-import Analytics from "./pages/admin/analytics";
+import Analytics from "./pages/admin/Analytics";
 import AllUsers from "./pages/admin/AllUsers";
 
 const router = createBrowserRouter([
