@@ -67,6 +67,7 @@ export const apiSlice = createApi({
     "User",
     "Invoice",
     "Ai",
+    "Analytics",
   ],
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,

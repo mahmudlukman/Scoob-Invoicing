@@ -27,3 +27,5 @@ export const addThousandsSeparator = (num: number) => {
     : formattedInteger;
 };
 
+export const currency = "₦";
+
