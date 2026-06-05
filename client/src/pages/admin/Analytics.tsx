@@ -61,7 +61,7 @@ const Analytics = () => {
       <div>
         <h2 className="text-xl font-semibold text-slate-900"> Dashboard </h2>
         <p className="text-sm text-slate-600 mt-1">
-          A quick overview of your business finances.
+          A quick overview of all activities.
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -246,7 +246,6 @@ const CustomizeInvoice = () => {
                 <button
                   key={palette.id}
                   onClick={() => setSelectedPalette(palette)}
-                  title={palette.label}
                   className={`relative flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 transition-all ${
                     selectedPalette.id === palette.id
                       ? "border-slate-900"

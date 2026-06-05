@@ -37,6 +37,14 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
+    duplicateInvoice: builder.mutation({
+      query: (id) => ({
+        url: `duplicate-invoice/${id}`,
+        method: "POST",
+        credentials: "include" as const,
+      }),
+      invalidatesTags: [{ type: "Invoice", id: "LIST" }],
+    }),
     updateInvoicePreferences: builder.mutation({
       query: (data) => ({
         url: "/update-invoice-preferences",
@@ -61,6 +69,7 @@ export const {
   useGetAllInvoicesQuery,
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
+  useDuplicateInvoiceMutation,
   useUpdateInvoicePreferencesMutation,
   useDeleteInvoiceMutation,
 } = userApi;

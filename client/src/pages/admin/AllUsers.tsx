@@ -9,6 +9,7 @@ import {
 } from "../../redux/features/user/userApi";
 import type { ServerError, User } from "../../@types";
 import toast from "react-hot-toast";
+import Tooltip from "../../components/ui/Tooltip";
 
 const AllUsers = () => {
   const [page, setPage] = useState(1);
@@ -247,68 +248,74 @@ const AllUsers = () => {
               <tbody className="bg-white divide-y divide-slate-200">
                 {users.map((user: User) => (
                   <tr key={user._id}>
-                    <td className="px-6 py-4 font-medium text-slate-900">
+                    <td className="px-6 py-4 font-medium text-slate-900 text-sm">
                       {user.name}
                     </td>
 
-                    <td className="px-6 py-4 text-slate-600">{user.email}</td>
+                    <td className="px-6 py-4 text-slate-600 text-sm">{user.email}</td>
 
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <select
-                          value={user.role}
-                          disabled={actionLoading === user._id}
-                          onChange={(e) =>
-                            handleRoleChange(
-                              user,
-                              e.target.value as "admin" | "user",
-                            )
-                          }
-                          className="border border-slate-200 rounded-md px-2 py-1 text-sm"
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="user">User</option>
-                        </select>
+                        <Tooltip text="Toggle User Role" position="top">
+                          <select
+                            value={user.role}
+                            disabled={actionLoading === user._id}
+                            onChange={(e) =>
+                              handleRoleChange(
+                                user,
+                                e.target.value as "admin" | "user",
+                              )
+                            }
+                            className="border border-slate-200 rounded-md px-2 py-1 text-sm"
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="user">User</option>
+                          </select>
+                        </Tooltip>
                       </div>
                     </td>
 
                     <td className="px-6 py-4">
-                      <button
-                        disabled={actionLoading === user._id}
-                        onClick={() => handleStatusToggle(user)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          user.isActive ? "bg-emerald-500" : "bg-slate-300"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            user.isActive ? "translate-x-6" : "translate-x-1"
+                      <Tooltip text="Toggle User Status" position="top">
+                        <button
+                          disabled={actionLoading === user._id}
+                          onClick={() => handleStatusToggle(user)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            user.isActive ? "bg-emerald-500" : "bg-slate-300"
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              user.isActive ? "translate-x-6" : "translate-x-1"
+                            }`}
+                          />
+                        </button>
+                      </Tooltip>
                     </td>
 
-                    <td className="px-6 py-4 text-slate-600">
+                    <td className="px-6 py-4 text-slate-600 text-sm">
                       {format(new Date(user.createdAt), "MMM d, yyyy")}
                     </td>
 
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() =>
-                          setDeleteModal({
-                            open: true,
-                            userId: user._id,
-                          })
-                        }
-                        disabled={actionLoading === user._id}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {actionLoading === user._id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      <Tooltip text="Delete User" position="top">
+                        <button
+                          onClick={() =>
+                            setDeleteModal({
+                              open: true,
+                              userId: user._id,
+                            })
+                          }
+                          disabled={actionLoading === user._id}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {actionLoading === user._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </Tooltip>
                     </td>
                   </tr>
                 ))}

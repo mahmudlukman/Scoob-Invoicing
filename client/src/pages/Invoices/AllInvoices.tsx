@@ -10,6 +10,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { format } from "date-fns";
 import Button from "../../components/ui/Button";
@@ -17,20 +18,23 @@ import {
   useGetAllInvoicesQuery,
   useDeleteInvoiceMutation,
   useUpdateInvoiceMutation,
+  useDuplicateInvoiceMutation,
 } from "../../redux/features/invoice/invoiceApi";
 import type { Invoice, ServerError } from "../../@types";
 import ReminderModel from "../../components/invoices/ReminderModel";
 import CreateWithAIModel from "../../components/invoices/CreateWithAIModel";
 import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
+import Tooltip from "../../components/ui/Tooltip";
 
 const AllInvoices = () => {
   const navigate = useNavigate();
 
   const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
-  const [deleteInvoice] = useDeleteInvoiceMutation();
+  const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
   const [updateInvoice] = useUpdateInvoiceMutation();
-
+  const [duplicateInvoice] = useDuplicateInvoiceMutation();
+  const [duplicateLoading, setDuplicateLoading] = useState<string | null>(null);
   const [statusChangeLoading, setStatusChangeLoading] = useState<string | null>(
     null,
   );
@@ -46,18 +50,46 @@ const AllInvoices = () => {
     return invoicesData?.invoices || [];
   }, [invoicesData]);
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this invoice?")) {
-      try {
-        await deleteInvoice(id).unwrap();
-      } catch (err: unknown) {
-        const serverError = err as ServerError;
-        const errorMessage =
-          serverError.data?.message ||
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    invoiceId: string | null;
+  }>({
+    open: false,
+    invoiceId: null,
+  });
+
+  const handleDelete = async () => {
+    if (!deleteModal.invoiceId) return;
+
+    try {
+      await deleteInvoice(deleteModal.invoiceId).unwrap();
+      toast.success("Invoice deleted successfully");
+      setDeleteModal({ open: false, invoiceId: null });
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError.data?.message ||
           serverError.message ||
-          "Failed to delete invoice";
-        toast.error(errorMessage);
-      }
+          "Failed to delete invoice",
+      );
+    }
+  };
+
+  const handleDuplicate = async (invoice: Invoice) => {
+    setDuplicateLoading(invoice._id);
+    try {
+      const result = await duplicateInvoice(invoice._id).unwrap();
+      toast.success(`Invoice duplicated as ${result.invoice.invoiceNumber}`);
+      navigate(`/invoice/${result.invoice._id}`);
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError.data?.message ||
+          serverError.message ||
+          "Failed to duplicate invoice",
+      );
+    } finally {
+      setDuplicateLoading(null);
     }
   };
 
@@ -299,29 +331,52 @@ const AllInvoices = () => {
                             ? "Mark Unpaid"
                             : "Mark Paid"}
                         </Button>
-                        <Button
-                          size="small"
-                          variant="ghost"
-                          onClick={() => navigate(`/invoices/${invoice._id}`)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="ghost"
-                          onClick={() => handleDelete(invoice._id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
-                        {invoice.status !== "Paid" && (
+                        <Tooltip text="Edit Invoice" position="top">
                           <Button
                             size="small"
                             variant="ghost"
-                            onClick={() => handleOpenReminderModel(invoice._id)}
-                            title="Generate Reminder"
+                            onClick={() => navigate(`/invoice/${invoice._id}`)}
                           >
-                            <Mail className="w-4 h-4 text-blue-500" />
+                            <Edit className="w-4 h-4" />
                           </Button>
+                        </Tooltip>
+                        <Tooltip text="Duplicate Invoice" position="top">
+                          <Button
+                            size="small"
+                            variant="ghost"
+                            onClick={() => handleDuplicate(invoice)}
+                            title="Duplicate Invoice"
+                            isLoading={duplicateLoading === invoice._id}
+                          >
+                            <Copy className="w-4 h-4 text-violet-500" />
+                          </Button>
+                        </Tooltip>
+                        <Tooltip text="Delete Invoice" position="left">
+                          <Button
+                            size="small"
+                            variant="ghost"
+                            onClick={() =>
+                              setDeleteModal({
+                                open: true,
+                                invoiceId: invoice._id,
+                              })
+                            }
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </Tooltip>
+                        {invoice.status !== "Paid" && (
+                          <Tooltip text="Generate Reminder" position="left">
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              onClick={() =>
+                                handleOpenReminderModel(invoice._id)
+                              }
+                            >
+                              <Mail className="w-4 h-4 text-blue-500" />
+                            </Button>
+                          </Tooltip>
                         )}
                       </div>
                     </td>
@@ -332,6 +387,48 @@ const AllInvoices = () => {
           </div>
         )}
       </div>
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Delete Invoice
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to delete this invoice? This action cannot
+                be undone.
+              </p>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    setDeleteModal({ open: false, invoiceId: null })
+                  }
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="danger"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </span>
+                  ) : (
+                    "Delete Invoice"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

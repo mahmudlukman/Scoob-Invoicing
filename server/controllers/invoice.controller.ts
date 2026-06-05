@@ -148,6 +148,65 @@ export const updateInvoice = catchAsyncError(
   },
 );
 
+// @desc        Duplicate an invoice
+// @route       POST /api/v1/duplicate-invoice/:id
+// @access      Private
+export const duplicateInvoice = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const original = await Invoice.findById(req.params.id);
+
+    if (!original) return next(new ErrorHandler("Invoice not found", 404));
+
+    // Find all invoices for this user to determine the next number
+    const userInvoices = await Invoice.find({ user: req.user }).select(
+      "invoiceNumber",
+    );
+
+    // Extract numeric parts from all invoice numbers (supports INV-001, INV-12, etc.)
+    const maxNumber = userInvoices.reduce((max, inv) => {
+      const match = inv.invoiceNumber.match(/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        return num > max ? num : max;
+      }
+      return max;
+    }, 0);
+
+    // Preserve the prefix from the original (e.g. "INV-" from "INV-001")
+    const prefixMatch = original.invoiceNumber.match(/^(.*?)(\d+)$/);
+    const prefix = prefixMatch ? prefixMatch[1] : "INV-";
+
+    // Pad to match the original's digit length (e.g. 001 → 3 digits), minimum 3
+    const originalDigits = prefixMatch ? prefixMatch[2].length : 3;
+    const padLength = Math.max(originalDigits, String(maxNumber + 1).length);
+    const newInvoiceNumber =
+      prefix + String(maxNumber + 1).padStart(padLength, "0");
+
+    const duplicate = new Invoice({
+      user: req.user,
+      invoiceNumber: newInvoiceNumber,
+      invoiceDate: new Date(),
+      dueDate: original.dueDate,
+      billFrom: original.billFrom,
+      billTo: original.billTo,
+      items: original.items,
+      notes: original.notes,
+      paymentTerms: original.paymentTerms,
+      subtotal: original.subtotal,
+      taxTotal: original.taxTotal,
+      total: original.total,
+      status: "Unpaid",
+    });
+
+    await duplicate.save();
+
+    res.status(201).json({
+      success: true,
+      invoice: duplicate,
+    });
+  },
+);
+
 // @desc    Update invoice preferences
 // @route   PATCH /api/v1/update-invoice-preferences
 // @access  Private
