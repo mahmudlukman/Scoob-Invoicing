@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { AlertCircle, Loader2, Search, Users, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Loader2,
+  Search,
+  Users,
+  Trash2,
+  // ShieldCheck,
+} from "lucide-react";
 import { format } from "date-fns";
 import Button from "../../components/ui/Button";
 import {
@@ -34,22 +41,17 @@ const AllUsers = () => {
   const handleStatusToggle = async (user: User) => {
     try {
       setActionLoading(user._id);
-
       await updateUserStatus({
-        data: {
-          id: user._id,
-          role: user.role,
-          isActive: !user.isActive,
-        },
+        data: { id: user._id, role: user.role, isActive: !user.isActive },
       }).unwrap();
       toast.success("User status updated");
     } catch (err: unknown) {
       const serverError = err as ServerError;
-      const errorMessage =
+      toast.error(
         serverError.data?.message ||
-        serverError.message ||
-        "Failed to update user status";
-      toast.error(errorMessage);
+          serverError.message ||
+          "Failed to update user status",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -58,22 +60,17 @@ const AllUsers = () => {
   const handleRoleChange = async (user: User, newRole: "admin" | "user") => {
     try {
       setActionLoading(user._id);
-
       await updateUserStatus({
-        data: {
-          id: user._id,
-          role: newRole,
-          isActive: user.isActive,
-        },
+        data: { id: user._id, role: newRole, isActive: user.isActive },
       }).unwrap();
       toast.success("User role updated");
     } catch (err: unknown) {
       const serverError = err as ServerError;
-      const errorMessage =
+      toast.error(
         serverError.data?.message ||
-        serverError.message ||
-        "Failed to update user role";
-      toast.error(errorMessage);
+          serverError.message ||
+          "Failed to update user role",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -82,34 +79,22 @@ const AllUsers = () => {
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
     userId: string | null;
-  }>({
-    open: false,
-    userId: null,
-  });
+  }>({ open: false, userId: null });
 
   const handleDeleteUser = async () => {
     if (!deleteModal.userId) return;
-
     try {
       setActionLoading(deleteModal.userId);
-
       await deleteUser(deleteModal.userId).unwrap();
-
       toast.success("User deleted successfully");
-
-      setDeleteModal({
-        open: false,
-        userId: null,
-      });
+      setDeleteModal({ open: false, userId: null });
     } catch (err: unknown) {
       const serverError = err as ServerError;
-
-      const errorMessage =
+      toast.error(
         serverError.data?.message ||
-        serverError.message ||
-        "Failed to delete user";
-
-      toast.error(errorMessage);
+          serverError.message ||
+          "Failed to delete user",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -129,13 +114,10 @@ const AllUsers = () => {
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8 text-red-600" />
         </div>
-
         <h3 className="text-lg font-medium text-slate-900 mb-2">
           Failed to load users
         </h3>
-
         <p className="text-slate-500 mb-6">There was an error loading users.</p>
-
         <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
@@ -146,7 +128,6 @@ const AllUsers = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">All Users</h1>
-
         <p className="text-sm text-slate-600 mt-1">
           Manage all registered users.
         </p>
@@ -160,7 +141,6 @@ const AllUsers = () => {
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="w-5 h-5 text-slate-400" />
               </div>
-
               <input
                 type="text"
                 placeholder="Search by name or email..."
@@ -205,57 +185,136 @@ const AllUsers = () => {
         {users.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Users className="w-12 h-12 text-slate-300 mb-4" />
-
             <h3 className="text-lg font-medium text-slate-900">
               No users found
             </h3>
-
             <p className="text-slate-500 mt-2">
               No users match your search criteria.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    User
-                  </th>
-
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    Email
-                  </th>
-
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    Role
-                  </th>
-
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    Joined
-                  </th>
-
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="bg-white divide-y divide-slate-200">
-                {users.map((user: User) => (
-                  <tr key={user._id}>
-                    <td className="px-6 py-4 font-medium text-slate-900 text-sm">
+          <>
+            {/* ── Mobile card list (hidden on md+) ── */}
+            <div className="md:hidden space-y-4 p-4">
+              {users.map((user: User) => (
+                <div
+                  key={user._id}
+                  className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"
+                >
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-slate-900">
                       {user.name}
-                    </td>
+                    </h3>
 
-                    <td className="px-6 py-4 text-slate-600 text-sm">{user.email}</td>
+                    <p className="text-sm text-slate-500 break-all">
+                      {user.email}
+                    </p>
+                  </div>
 
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                  <div className="mt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-500">Role</span>
+
+                      <select
+                        value={user.role}
+                        disabled={actionLoading === user._id}
+                        onChange={(e) =>
+                          handleRoleChange(
+                            user,
+                            e.target.value as "admin" | "user",
+                          )
+                        }
+                        className="border border-slate-200 rounded-md px-2 py-1 text-sm"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
+                      </select>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-500">Status</span>
+
+                      <button
+                        disabled={actionLoading === user._id}
+                        onClick={() => handleStatusToggle(user)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          user.isActive ? "bg-emerald-500" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            user.isActive ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-500">Joined</span>
+
+                      <span className="text-sm text-slate-700">
+                        {format(new Date(user.createdAt), "MMM d, yyyy")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() =>
+                        setDeleteModal({
+                          open: true,
+                          userId: user._id,
+                        })
+                      }
+                      disabled={actionLoading === user._id}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50"
+                    >
+                      {actionLoading === user._id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Desktop table (hidden below md) ── */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Joined
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {users.map((user: User) => (
+                    <tr key={user._id}>
+                      <td className="px-6 py-4 font-medium text-slate-900 text-sm">
+                        {user.name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 text-sm">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4">
                         <Tooltip text="Toggle User Role" position="top">
                           <select
                             value={user.role}
@@ -272,56 +331,52 @@ const AllUsers = () => {
                             <option value="user">User</option>
                           </select>
                         </Tooltip>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <Tooltip text="Toggle User Status" position="top">
-                        <button
-                          disabled={actionLoading === user._id}
-                          onClick={() => handleStatusToggle(user)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            user.isActive ? "bg-emerald-500" : "bg-slate-300"
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              user.isActive ? "translate-x-6" : "translate-x-1"
+                      </td>
+                      <td className="px-6 py-4">
+                        <Tooltip text="Toggle User Status" position="top">
+                          <button
+                            disabled={actionLoading === user._id}
+                            onClick={() => handleStatusToggle(user)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              user.isActive ? "bg-emerald-500" : "bg-slate-300"
                             }`}
-                          />
-                        </button>
-                      </Tooltip>
-                    </td>
-
-                    <td className="px-6 py-4 text-slate-600 text-sm">
-                      {format(new Date(user.createdAt), "MMM d, yyyy")}
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      <Tooltip text="Delete User" position="top">
-                        <button
-                          onClick={() =>
-                            setDeleteModal({
-                              open: true,
-                              userId: user._id,
-                            })
-                          }
-                          disabled={actionLoading === user._id}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {actionLoading === user._id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </Tooltip>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                user.isActive
+                                  ? "translate-x-6"
+                                  : "translate-x-1"
+                              }`}
+                            />
+                          </button>
+                        </Tooltip>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 text-sm">
+                        {format(new Date(user.createdAt), "MMM d, yyyy")}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Tooltip text="Delete User" position="top">
+                          <button
+                            onClick={() =>
+                              setDeleteModal({ open: true, userId: user._id })
+                            }
+                            disabled={actionLoading === user._id}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {actionLoading === user._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Pagination */}
@@ -330,7 +385,6 @@ const AllUsers = () => {
             <p className="text-sm text-slate-500">
               Page {data.pagination.currentPage} of {data.pagination.totalPages}
             </p>
-
             <div className="flex gap-2">
               <Button
                 variant="secondary"
@@ -339,7 +393,6 @@ const AllUsers = () => {
               >
                 Previous
               </Button>
-
               <Button
                 variant="secondary"
                 disabled={!data.pagination.hasNextPage}
@@ -351,6 +404,8 @@ const AllUsers = () => {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
       {deleteModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
@@ -358,25 +413,17 @@ const AllUsers = () => {
               <h3 className="text-lg font-semibold text-slate-900">
                 Delete User
               </h3>
-
               <p className="mt-2 text-sm text-slate-600">
                 Are you sure you want to delete this user? This action cannot be
                 undone.
               </p>
-
               <div className="flex justify-end gap-3 mt-6">
                 <Button
                   variant="secondary"
-                  onClick={() =>
-                    setDeleteModal({
-                      open: false,
-                      userId: null,
-                    })
-                  }
+                  onClick={() => setDeleteModal({ open: false, userId: null })}
                 >
                   Cancel
                 </Button>
-
                 <Button
                   variant="danger"
                   onClick={handleDeleteUser}

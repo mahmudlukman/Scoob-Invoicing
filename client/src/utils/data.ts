@@ -8,6 +8,7 @@ import {
   User,
   UserRoundCog,
 } from "lucide-react";
+import type { InvoiceFormData } from "../@types";
 
 export const FEATURES = [
   {
@@ -136,5 +137,130 @@ export const NAVIGATION_MENU = [
     name: "Profile",
     icon: User,
     visible: ["user", "admin"],
+  },
+];
+
+export const PREVIEW_INVOICE: InvoiceFormData = {
+  invoiceNumber: "INV-0042",
+  invoiceDate: new Date().toISOString(),
+  dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  paymentTerms: "Net 14",
+  status: "Pending",
+  billFrom: {
+    businessName: "Acme Studios",
+    address: "12 Design Lane, Lagos",
+    email: "hello@acmestudios.co",
+    phone: "+234 800 000 0000",
+  },
+  billTo: {
+    clientName: "Bright Futures Ltd",
+    address: "5 Commerce Road, Abuja",
+    email: "accounts@brightfutures.ng",
+    phone: "+234 801 234 5678",
+  },
+  items: [
+    {
+      name: "Brand Identity Design",
+      quantity: 1,
+      unitPrice: 250000,
+      taxPercent: 0,
+      total: 250000,
+    },
+    {
+      name: "Website Development",
+      quantity: 1,
+      unitPrice: 450000,
+      taxPercent: 0,
+      total: 450000,
+    },
+    {
+      name: "Monthly Retainer",
+      quantity: 3,
+      unitPrice: 80000,
+      taxPercent: 0,
+      total: 240000,
+    },
+  ],
+  subtotal: 940000,
+  taxTotal: 47000,
+  total: 987000,
+  notes:
+    "All payments should be made to:\nAccount Name: Acme Studios\nAccount Number: 1234567890",
+};
+
+export const TEMPLATES = [
+  {
+    id: "01",
+    name: "Classic",
+    description: "Sidebar layout with a clean, professional feel",
+  },
+  {
+    id: "02",
+    name: "Modern",
+    description: "Bold dark header with a contemporary look",
+  },
+  {
+    id: "03",
+    name: "Editorial",
+    description: "Minimal accent bar, refined typographic style",
+  },
+];
+
+export const COLOR_PALETTES = [
+  {
+    id: "green",
+    label: "Forest",
+    primary: "#16A34A",
+    secondary: "#15803D",
+    background: "#F0FDF4",
+  },
+  {
+    id: "blue",
+    label: "Ocean",
+    primary: "#1D4ED8",
+    secondary: "#1E40AF",
+    background: "#EFF6FF",
+  },
+  {
+    id: "amber",
+    label: "Ember",
+    primary: "#D97706",
+    secondary: "#92400E",
+    background: "#FAFAF9",
+  },
+  {
+    id: "rose",
+    label: "Rose",
+    primary: "#E11D48",
+    secondary: "#9F1239",
+    background: "#FFF1F2",
+  },
+  {
+    id: "violet",
+    label: "Violet",
+    primary: "#7C3AED",
+    secondary: "#5B21B6",
+    background: "#F5F3FF",
+  },
+  {
+    id: "slate",
+    label: "Slate",
+    primary: "#334155",
+    secondary: "#0F172A",
+    background: "#F8FAFC",
+  },
+  {
+    id: "teal",
+    label: "Teal",
+    primary: "#0D9488",
+    secondary: "#0F766E",
+    background: "#F0FDFA",
+  },
+  {
+    id: "orange",
+    label: "Terracotta",
+    primary: "#EA580C",
+    secondary: "#9A3412",
+    background: "#FFF7ED",
   },
 ];

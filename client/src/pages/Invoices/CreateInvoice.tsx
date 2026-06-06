@@ -189,11 +189,16 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 pb-[100vh]">
+    <form onSubmit={handleSubmit} className="space-y-8 pb-[10vh]">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {existingInvoice ? "Edit Invoice" : "Create Invoice"}
-        </h2>
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">
+            {existingInvoice ? "Edit Invoice" : "Create Invoice"}
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Create and manage your invoices.
+          </p>
+        </div>
         <Button type="submit" isLoading={isCreating || isGeneratingNumber}>
           {existingInvoice ? "Save Changes" : "Save Invoice"}
         </Button>
