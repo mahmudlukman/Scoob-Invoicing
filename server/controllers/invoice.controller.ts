@@ -69,6 +69,47 @@ export const getInvoices = catchAsyncError(
   },
 );
 
+// export const getInvoices = catchAsyncError(
+//   async (req: Request, res: Response, next: NextFunction) => {
+//     const page = Math.max(1, parseInt(req.query.page as string) || 1);
+
+//     const pageSize = Math.min(
+//       50,
+//       Math.max(1, parseInt(req.query.pageSize as string) || 10)
+//     );
+
+//     const skipAmount = (page - 1) * pageSize;
+
+//     const user = await User.findById(req.user?._id);
+
+//     const [invoices, totalInvoices] = await Promise.all([
+//       Invoice.find({ user })
+//         .populate("user", "name email")
+//         .sort({ createdAt: -1 })
+//         .skip(skipAmount)
+//         .limit(pageSize),
+
+//       Invoice.countDocuments({ user }),
+//     ]);
+
+//     const totalPages = Math.ceil(totalInvoices / pageSize);
+
+//     res.status(200).json({
+//       success: true,
+//       invoices,
+//       pagination: {
+//         currentPage: page,
+//         pageSize,
+//         totalItems: totalInvoices,
+//         totalPages,
+//         hasNextPage: page < totalPages,
+//         hasPrevPage: page > 1,
+//         isNext: page < totalPages,
+//       },
+//     });
+//   }
+// );
+
 // @desc        Get single invoices by ID
 // @route       GET /api/v1/invoices/:id
 // @access      Private

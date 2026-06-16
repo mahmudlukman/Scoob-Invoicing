@@ -12,7 +12,7 @@ import {
 } from "../../redux/features/invoice/invoiceApi";
 import { useSelector } from "react-redux";
 import type { InvoiceFormData, RootState, ServerError } from "../../@types";
-import SelectField from "../../components/ui/SelectedField";
+import SelectField from "../../components/ui/SelectedField"; // Verify if filename matches your directory
 import { addThousandsSeparator } from "../../utils/helper";
 
 interface CreateInvoiceProps {
@@ -28,18 +28,19 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const { data: invoicesData } = useGetAllInvoicesQuery();
   const [createInvoice, { isLoading: isCreating }] = useCreateInvoiceMutation();
 
-  // Initialize form data with useMemo to avoid cascading renders
+  // Initialize form data with fallback values to ensure controlled inputs
   const initialFormData = useMemo(() => {
     const aiData = location.state?.aiData;
 
     if (existingInvoice) {
       return {
         ...existingInvoice,
-        invoiceDate: format(
-          new Date(existingInvoice.invoiceDate),
-          "yyyy-MM-dd",
-        ),
-        dueDate: format(new Date(existingInvoice.dueDate), "yyyy-MM-dd"),
+        invoiceDate: existingInvoice.invoiceDate
+          ? format(new Date(existingInvoice.invoiceDate), "yyyy-MM-dd")
+          : new Date().toISOString().split("T")[0],
+        dueDate: existingInvoice.dueDate
+          ? format(new Date(existingInvoice.dueDate), "yyyy-MM-dd")
+          : "",
       };
     }
 
@@ -66,7 +67,15 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         address: aiData.address || "",
         phone: aiData.phone || "",
       };
-      baseData.items = aiData.items || baseData.items;
+      baseData.items =
+        aiData.items?.map(
+          (item: Partial<InvoiceFormData["items"][number]>) => ({
+            name: item.name || "",
+            quantity: item.quantity ?? 1,
+            unitPrice: item.unitPrice ?? 0,
+            taxPercent: item.taxPercent ?? 0,
+          }),
+        ) || baseData.items;
     }
 
     return baseData;
@@ -76,7 +85,12 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const [isGeneratingNumber, setIsGeneratingNumber] =
     useState(!existingInvoice);
 
-  // Generate invoice number only when needed
+  // Auto-fill form data if initialFormData changes asynchronously (e.g., when user profile loads)
+  useEffect(() => {
+    setFormData(initialFormData);
+  }, [initialFormData]);
+
+  // Generate sequence invoice numbers based on existing records
   useEffect(() => {
     if (!existingInvoice && !formData.invoiceNumber) {
       setIsGeneratingNumber(true);
@@ -84,8 +98,11 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         const invoices = invoicesData?.invoices || [];
         let maxNum = 0;
         invoices.forEach((inv) => {
-          const num = parseInt(inv.invoiceNumber.split("-")[1]);
-          if (!isNaN(num) && num > maxNum) maxNum = num;
+          // Robust parsing to catch variations in naming or missing fields
+          if (inv.invoiceNumber && inv.invoiceNumber.includes("-")) {
+            const num = parseInt(inv.invoiceNumber.split("-")[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
         });
         const newInvoiceNumber = `INV-${String(maxNum + 1).padStart(3, "0")}`;
         setFormData((prev) => ({ ...prev, invoiceNumber: newInvoiceNumber }));
@@ -109,6 +126,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     index?: number,
   ) => {
     const { name, value } = e.target;
+
     if (section) {
       setFormData((prev) => ({
         ...prev,
@@ -116,9 +134,16 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
       }));
     } else if (index !== undefined) {
       const newItems = [...formData.items];
+
+      // Allow empty inputs temporarily so users can backspace and type values smoothly
+      let updatedValue: string | number = value;
+      if (name !== "name") {
+        updatedValue = value === "" ? "" : parseFloat(value);
+      }
+
       newItems[index] = {
         ...newItems[index],
-        [name]: name === "name" ? value : parseFloat(value) || 0,
+        [name]: updatedValue,
       };
       setFormData((prev) => ({ ...prev, items: newItems }));
     } else {
@@ -137,17 +162,27 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   };
 
   const handleRemoveItem = (index: number) => {
+    // Keep at least one item row active
+    if (formData.items.length === 1) {
+      toast.error("An invoice must contain at least one item.");
+      return;
+    }
     const newItems = formData.items.filter((_, i) => i !== index);
     setFormData({ ...formData, items: newItems });
   };
 
+  // Perform accurate calculations, ensuring fallbacks handle empty string states during typing
   const { subtotal, taxTotal, total } = useMemo(() => {
     let subtotal = 0,
       taxTotal = 0;
     formData.items.forEach((item) => {
-      const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
+      const qty = Number(item.quantity) || 0;
+      const price = Number(item.unitPrice) || 0;
+      const tax = Number(item.taxPercent) || 0;
+
+      const itemTotal = qty * price;
       subtotal += itemTotal;
-      taxTotal += itemTotal * ((item.taxPercent || 0) / 100);
+      taxTotal += itemTotal * (tax / 100);
     });
     return { subtotal, taxTotal, total: subtotal + taxTotal };
   }, [formData.items]);
@@ -155,13 +190,20 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const itemsWithTotal = formData.items.map((item) => ({
-      ...item,
-      total:
-        (item.quantity || 0) *
-        (item.unitPrice || 0) *
-        (1 + (item.taxPercent || 0) / 100),
-    }));
+    // Final clean up and typing compliance check before server submission
+    const itemsWithTotal = formData.items.map((item) => {
+      const qty = Number(item.quantity) || 0;
+      const price = Number(item.unitPrice) || 0;
+      const tax = Number(item.taxPercent) || 0;
+      return {
+        ...item,
+        quantity: qty,
+        unitPrice: price,
+        taxPercent: tax,
+        total: qty * price * (1 + tax / 100),
+      };
+    });
+
     const finalFormData: InvoiceFormData = {
       ...formData,
       items: itemsWithTotal,
@@ -188,6 +230,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     }
   };
 
+  // Helper utility to safely manage view layer numbers and fallback strings smoothly
+  const formatCurrencyValue = (val: number) => {
+    const integerPart = Math.trunc(val);
+    const formattedInteger = addThousandsSeparator(integerPart);
+    const decimalPart = val.toFixed(2).split(".")[1];
+    return `${formattedInteger}.${decimalPart}`;
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8 pb-[10vh]">
       <div className="flex justify-between items-center">
@@ -204,6 +254,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         </Button>
       </div>
 
+      {/* Meta details section */}
       <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InputField
@@ -218,6 +269,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             label="Invoice Date"
             name="invoiceDate"
             type="date"
+            required
             value={formData.invoiceDate}
             onChange={handleInputChange}
           />
@@ -225,12 +277,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             label="Due Date"
             name="dueDate"
             type="date"
+            required
             value={formData.dueDate}
             onChange={handleInputChange}
           />
         </div>
       </div>
 
+      {/* Bill To / From Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200 space-y-4">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -239,6 +293,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
           <InputField
             label="Business Name"
             name="businessName"
+            required
             value={formData.billFrom.businessName || ""}
             onChange={(e) => handleInputChange(e, "billFrom")}
           />
@@ -246,12 +301,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             label="Email"
             type="email"
             name="email"
+            required
             value={formData.billFrom.email}
             onChange={(e) => handleInputChange(e, "billFrom")}
           />
           <TextareaField
             label="Address"
             name="address"
+            required
             value={formData.billFrom.address}
             onChange={(e) => handleInputChange(e, "billFrom")}
           />
@@ -267,6 +324,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
           <InputField
             label="Client Name"
             name="clientName"
+            required
             value={formData.billTo.clientName || ""}
             onChange={(e) => handleInputChange(e, "billTo")}
           />
@@ -274,12 +332,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             label="Client Email"
             type="email"
             name="email"
+            required
             value={formData.billTo.email}
             onChange={(e) => handleInputChange(e, "billTo")}
           />
           <TextareaField
             label="Client Address"
             name="address"
+            required
             value={formData.billTo.address}
             onChange={(e) => handleInputChange(e, "billTo")}
           />
@@ -292,6 +352,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         </div>
       </div>
 
+      {/* Line Items Table */}
       <div className="bg-white rounded-lg shadow-sm shadow-gray-100 border border-slate-200 overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50">
           <h3 className="text-lg font-semibold text-slate-900">Items</h3>
@@ -303,13 +364,13 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                 <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Item
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
                   Qty
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-36">
                   Price
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
                   Tax (%)
                 </th>
                 <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -319,74 +380,77 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              {formData.items.map((item, index) => (
-                <tr key={index} className="hover:bg-slate-50">
-                  <td className="px-2 sm:px-6 py-4">
-                    <input
-                      type="text"
-                      name="name"
-                      value={item.name}
-                      onChange={(e) => handleInputChange(e, undefined, index)}
-                      placeholder="Item name"
-                      className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-2 sm:px-6 py-4">
-                    <input
-                      type="number"
-                      name="quantity"
-                      value={item.quantity}
-                      onChange={(e) => handleInputChange(e, undefined, index)}
-                      placeholder="1"
-                      className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-2 sm:px-6 py-4">
-                    <input
-                      type="number"
-                      name="unitPrice"
-                      value={item.unitPrice}
-                      onChange={(e) => handleInputChange(e, undefined, index)}
-                      placeholder="0.00"
-                      step="0.01"
-                      className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-2 sm:px-6 py-4">
-                    <input
-                      type="number"
-                      name="taxPercent"
-                      value={item.taxPercent}
-                      onChange={(e) => handleInputChange(e, undefined, index)}
-                      placeholder="0"
-                      step="0.01"
-                      className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </td>
-                  <td className="px-2 sm:px-6 py-4 text-sm text-slate-500">
-                    ₦
-                    {addThousandsSeparator(
-                      Number(
-                        (
-                          (item.quantity || 0) *
-                          (item.unitPrice || 0) *
-                          (1 + (item.taxPercent || 0) / 100)
-                        ).toFixed(2),
-                      ),
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-6 py-4">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      onClick={() => handleRemoveItem(index)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {formData.items.map((item, index) => {
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.unitPrice) || 0;
+                const tax = Number(item.taxPercent) || 0;
+                const calculatedItemTotal = qty * price * (1 + tax / 100);
+
+                return (
+                  <tr key={index} className="hover:bg-slate-50">
+                    <td className="px-2 sm:px-6 py-4">
+                      <input
+                        type="text"
+                        name="name"
+                        required
+                        value={item.name}
+                        onChange={(e) => handleInputChange(e, undefined, index)}
+                        placeholder="Item name"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className="px-2 sm:px-6 py-4">
+                      <input
+                        type="number"
+                        name="quantity"
+                        required
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleInputChange(e, undefined, index)}
+                        placeholder="1"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className="px-2 sm:px-6 py-4">
+                      <input
+                        type="number"
+                        name="unitPrice"
+                        required
+                        min="0"
+                        value={item.unitPrice}
+                        onChange={(e) => handleInputChange(e, undefined, index)}
+                        placeholder="0.00"
+                        step="0.01"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className="px-2 sm:px-6 py-4">
+                      <input
+                        type="number"
+                        name="taxPercent"
+                        value={item.taxPercent}
+                        onChange={(e) => handleInputChange(e, undefined, index)}
+                        placeholder="0"
+                        step="0.01"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </td>
+                    <td className="px-2 sm:px-6 py-4 text-sm text-slate-700 font-medium">
+                      ₦{formatCurrencyValue(calculatedItemTotal)}
+                    </td>
+                    <td className="px-2 sm:px-6 py-4">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="small"
+                        onClick={() => handleRemoveItem(index)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -402,6 +466,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         </div>
       </div>
 
+      {/* Summary Footer Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200 space-y-4">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -425,15 +490,15 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
           <div className="space-y-4">
             <div className="flex justify-between text-sm text-slate-600">
               <p>Subtotal:</p>
-              <p>₦{addThousandsSeparator(Number(subtotal.toFixed(2)))}</p>
+              <p>₦{formatCurrencyValue(subtotal)}</p>
             </div>
             <div className="flex justify-between text-sm text-slate-600">
               <p>Tax:</p>
-              <p>₦{addThousandsSeparator(Number(taxTotal.toFixed(2)))}</p>
+              <p>₦{formatCurrencyValue(taxTotal)}</p>
             </div>
             <div className="flex justify-between text-sm font-semibold text-slate-900 border-t border-slate-200 pt-4 mt-4">
               <p>Total:</p>
-              <p>₦{addThousandsSeparator(Number(total.toFixed(2)))}</p>
+              <p>₦{formatCurrencyValue(total)}</p>
             </div>
           </div>
         </div>

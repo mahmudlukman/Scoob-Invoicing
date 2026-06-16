@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Check, Palette, Save } from "lucide-react";
@@ -17,15 +17,44 @@ const CustomizeInvoice = () => {
   const [updateInvoicePreferences, { isLoading }] =
     useUpdateInvoicePreferencesMutation();
 
-  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
 
+  // Lazy initialize state to prevent re-running searches on every component rerender
   const [selectedTemplate, setSelectedTemplate] = useState<string>(
-    user?.invoicePreferences?.templateId ?? "01",
+    () => user?.invoicePreferences?.templateId ?? "01",
   );
   const [selectedPalette, setSelectedPalette] = useState(
-    COLOR_PALETTES.find((p) => p.id === user?.invoicePreferences?.paletteId) ??
-      COLOR_PALETTES[0],
+    () =>
+      COLOR_PALETTES.find(
+        (p) => p.id === user?.invoicePreferences?.paletteId,
+      ) ?? COLOR_PALETTES[0],
   );
+
+  // Handles responsive scaling/height calculations safely without render cycle leaks
+  useEffect(() => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const handleResize = () => {
+      const containerWidth = container.clientWidth ?? INVOICE_WIDTH;
+      const scale = Math.min(1, containerWidth / INVOICE_WIDTH);
+
+      inner.style.setProperty("--preview-scale", String(scale));
+
+      // Force parent wrapper height to map exact scaled canvas matrix bounds
+      const naturalHeight = inner.scrollHeight;
+      container.style.height = `${naturalHeight * scale}px`;
+    };
+
+    // Execute immediately on mount & listen to container element scale transformations
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [selectedTemplate]); // Re-evaluate when template changes heights
 
   const handleSave = async () => {
     try {
@@ -47,6 +76,7 @@ const CustomizeInvoice = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Header Panel Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -76,8 +106,9 @@ const CustomizeInvoice = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8">
-        {/* Controls */}
+        {/* Preference Input Controls */}
         <div className="space-y-6">
+          {/* Template Matrix Group */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
               Template
@@ -86,6 +117,7 @@ const CustomizeInvoice = () => {
               {TEMPLATES.map((t) => (
                 <button
                   key={t.id}
+                  type="button"
                   onClick={() => setSelectedTemplate(t.id)}
                   className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
                     selectedTemplate === t.id
@@ -113,6 +145,7 @@ const CustomizeInvoice = () => {
             </div>
           </div>
 
+          {/* Color Palettes Selection Blocks */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <Palette className="w-4 h-4 text-slate-400" />
@@ -124,6 +157,7 @@ const CustomizeInvoice = () => {
               {COLOR_PALETTES.map((palette) => (
                 <button
                   key={palette.id}
+                  type="button"
                   onClick={() => setSelectedPalette(palette)}
                   className={`relative flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 transition-all ${
                     selectedPalette.id === palette.id
@@ -159,51 +193,24 @@ const CustomizeInvoice = () => {
           </div>
         </div>
 
-        {/* Preview */}
-        <div className="bg-slate-100 rounded-xl p-6 overflow-hidden">
+        {/* Live Vector Preview Canvas View */}
+        <div className="bg-slate-100 rounded-xl p-6 overflow-hidden flex flex-col">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
             Live Preview
           </p>
 
-          {/*
-            On mobile the invoice renders at 680px wide but the container is
-            narrower. We use a CSS scale transform to shrink it to fit, then
-            collapse the excess height with a negative margin trick so the
-            container doesn't leave a big gap.
-          */}
           <div
-            ref={previewContainerRef}
-            className="rounded-lg overflow-hidden shadow-lg"
+            ref={containerRef}
+            className="rounded-lg overflow-hidden shadow-lg bg-white"
             style={{ width: "100%" }}
           >
             <div
+              ref={innerRef}
               className="origin-top-left lg:transform-none"
               style={{
-                // On desktop the preview area is wide enough — no scaling needed.
-                // On mobile/tablet we let the browser calculate the scale via a
-                // CSS custom property set inline. We rely on a clamp so it never
-                // scales *up* (max 1).
                 transform: `scale(var(--preview-scale, 1))`,
-                width: INVOICE_WIDTH,
-                // Collapse the extra height introduced by scaling down so the
-                // surrounding layout doesn't have a big empty gap.
+                width: `${INVOICE_WIDTH}px`,
                 marginBottom: `calc((var(--preview-scale, 1) - 1) * ${INVOICE_WIDTH}px * 1.414)`,
-              }}
-              ref={(el) => {
-                if (!el) return;
-                const observer = new ResizeObserver(() => {
-                  const containerWidth =
-                    el.parentElement?.clientWidth ?? INVOICE_WIDTH;
-                  const scale = Math.min(1, containerWidth / INVOICE_WIDTH);
-                  el.style.setProperty("--preview-scale", String(scale));
-                  // Shrink the container height to match the scaled content.
-                  const naturalHeight = el.scrollHeight;
-                  if (el.parentElement) {
-                    el.parentElement.style.height = `${naturalHeight * scale}px`;
-                  }
-                });
-                observer.observe(el.parentElement!);
-                return () => observer.disconnect();
               }}
             >
               <RenderInvoice

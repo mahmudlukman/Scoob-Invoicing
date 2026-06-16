@@ -14,11 +14,19 @@ import NotFound from "./pages/NotFound";
 import CustomizeInvoice from "./pages/Invoices/CustomizeInvoice";
 import Analytics from "./pages/admin/Analytics";
 import AllUsers from "./pages/admin/AllUsers";
+import PrivacyPolicyPage from "./pages/LandingPage/PrivacyPolicyPage";
+import TermsOfUsePage from "./pages/LandingPage/TermsOfUsePage";
+import AboutPage from "./pages/LandingPage/AboutPage";
+import ContactPage from "./pages/LandingPage/ContactPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
   { path: "/reset-password", element: <ResetPassword /> },
   { path: "/activation/:activation_token", element: <Activation /> },
+  { path: "/about", element: <AboutPage /> },
+  { path: "/contact", element: <ContactPage /> },
+  { path: "/privacy-policy", element: <PrivacyPolicyPage /> },
+  { path: "/terms-of-use", element: <TermsOfUsePage /> },
 
   // admin protected routes
   {
