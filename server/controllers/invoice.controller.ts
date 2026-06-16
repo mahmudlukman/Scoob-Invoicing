@@ -122,6 +122,12 @@ export const getInvoiceById = catchAsyncError(
 
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
+    if (invoice.user._id.toString() !== req.user?._id.toString()) {
+      return next(
+        new ErrorHandler("Not authorized to access this invoice", 403),
+      );
+    }
+
     res.status(200).json({
       success: true,
       invoice,
@@ -181,6 +187,7 @@ export const updateInvoice = catchAsyncError(
 
     if (!updatedInvoice)
       return res.status(404).json({ message: "Invoice not found" });
+    
 
     res.status(200).json({
       success: true,

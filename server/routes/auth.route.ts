@@ -15,19 +15,34 @@ import {
   validateUserLogin,
   validateUserRegistration,
 } from "../middleware/validator";
+import {
+  activateLimiter,
+  forgotPasswordLimiter,
+  loginLimiter,
+  refreshLimiter,
+  registerLimiter,
+  resetPasswordLimiter,
+} from "../utils/rateLimiter";
 const authRouter = express.Router();
 
-authRouter.post("/register", validateUserRegistration, validate, createUser);
-authRouter.post("/activate-user", activateUser);
-authRouter.post("/login", validateUserLogin, validate, loginUser);
+authRouter.post(
+  "/register",
+  registerLimiter,
+  validateUserRegistration,
+  validate,
+  createUser,
+);
+authRouter.post("/activate-user", activateLimiter, activateUser);
+authRouter.post("/login", loginLimiter, validateUserLogin, validate, loginUser);
 authRouter.get("/logout", isAuthenticated, logoutUser);
-authRouter.post("/forgot-password", forgotPassword);
+authRouter.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 authRouter.post(
   "/reset-password",
+  resetPasswordLimiter,
   validateChangePassword,
   validate,
-  resetPassword
+  resetPassword,
 );
-authRouter.post("/refresh-token", refreshAccessToken);
+authRouter.post("/refresh-token", refreshLimiter, refreshAccessToken);
 
 export default authRouter;

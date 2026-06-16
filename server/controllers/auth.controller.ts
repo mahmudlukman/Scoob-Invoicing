@@ -63,11 +63,11 @@ export const createUser = catchAsyncError(
       return next(
         new ErrorHandler(
           `Failed to send activation email: ${error.message}`,
-          400
-        )
+          400,
+        ),
       );
     }
-  }
+  },
 );
 
 // Function to create an activation token
@@ -91,7 +91,7 @@ export const activateUser = catchAsyncError(
     }
     const newUser = jwt.verify(
       activation_token,
-      config.ACTIVATION_SECRET as string
+      config.ACTIVATION_SECRET as string,
     ) as { user: IUser };
 
     if (!newUser) {
@@ -114,7 +114,7 @@ export const activateUser = catchAsyncError(
       success: true,
       message: "Email verified & user created successfully",
     });
-  }
+  },
 );
 
 // Login user
@@ -146,12 +146,12 @@ export const loginUser = catchAsyncError(
       return next(
         new ErrorHandler(
           "This account has been suspended! Try to contact the admin",
-          403
-        )
+          403,
+        ),
       );
     }
     sendToken(user, 200, res);
-  }
+  },
 );
 
 export const logoutUser = catchAsyncError(
@@ -174,7 +174,7 @@ export const logoutUser = catchAsyncError(
       success: true,
       message: "Logged out successfully",
     });
-  }
+  },
 );
 
 // ============================================
@@ -186,14 +186,14 @@ export const refreshAccessToken = catchAsyncError(
 
     if (!refresh_token) {
       return next(
-        new ErrorHandler("Please login to access this resource", 401)
+        new ErrorHandler("Please login to access this resource", 401),
       );
     }
 
     // Verify refresh token
     const decoded = jwt.verify(
       refresh_token,
-      config.REFRESH_TOKEN_SECRET as Secret
+      config.REFRESH_TOKEN_SECRET as Secret,
     ) as { id: string };
 
     if (!decoded) {
@@ -212,8 +212,8 @@ export const refreshAccessToken = catchAsyncError(
       return next(
         new ErrorHandler(
           "This account has been suspended! Try to contact the admin",
-          403
-        )
+          403,
+        ),
       );
     }
 
@@ -239,7 +239,7 @@ export const refreshAccessToken = catchAsyncError(
         isActive: user.isActive,
       },
     });
-  }
+  },
 );
 
 export const forgotPassword = catchAsyncError(
@@ -260,8 +260,8 @@ export const forgotPassword = catchAsyncError(
       return next(
         new ErrorHandler(
           "This account has been suspended! Try to contact the admin",
-          403
-        )
+          403,
+        ),
       );
     }
 
@@ -287,51 +287,124 @@ export const forgotPassword = catchAsyncError(
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 400));
     }
-  }
+  },
 );
 
-// update user password
 interface IResetPassword {
   newPassword: string;
 }
 
-// reset password
 export const resetPassword = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const { newPassword } = req.body as IResetPassword;
-    const { id } = req.query;
+    const { token } = req.query;
 
-    if (!id) {
-      return next(new ErrorHandler("No user ID provided!", 400));
+    if (!token || typeof token !== "string") {
+      return next(new ErrorHandler("Reset token is required", 400));
     }
 
-    const user = await User.findById(id).select("+password");
+    if (!newPassword) {
+      return next(new ErrorHandler("Please provide a new password", 400));
+    }
+
+    let decoded: { user: { email: string; _id?: string } };
+    try {
+      decoded = jwt.verify(token, config.ACTIVATION_SECRET as string) as {
+        user: { email: string; _id?: string };
+      };
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        return next(new ErrorHandler("Reset token has expired", 400));
+      }
+      return next(new ErrorHandler("Invalid or expired reset token", 400));
+    }
+
+    const user = await User.findOne({ email: decoded.user.email }).select(
+      "+password",
+    );
 
     if (!user) {
-      return next(new ErrorHandler("user not found!", 400));
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    if (!user.isActive) {
+      return next(
+        new ErrorHandler(
+          "This account has been suspended! Try to contact the admin",
+          403,
+        ),
+      );
     }
 
     const isSamePassword = await user.comparePassword(newPassword);
-    if (isSamePassword)
+    if (isSamePassword) {
       return next(
         new ErrorHandler(
           "New password must be different from the previous one!",
-          400
-        )
+          400,
+        ),
       );
+    }
 
     if (newPassword.trim().length < 6 || newPassword.trim().length > 20) {
       return next(
-        new ErrorHandler("Password must be between at least 6 characters!", 400)
+        new ErrorHandler("Password must be between 6 and 20 characters!", 400),
       );
     }
 
     user.password = newPassword.trim();
     await user.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: `Password Reset Successfully', 'Now you can login with new password!`,
+      message:
+        "Password reset successfully! Now you can login with your new password!",
     });
-  }
+  },
 );
+
+// update user password
+// interface IResetPassword {
+//   newPassword: string;
+// }
+
+// // reset password
+// export const resetPassword = catchAsyncError(
+//   async (req: Request, res: Response, next: NextFunction) => {
+//     const { newPassword } = req.body as IResetPassword;
+//     const { id } = req.query;
+
+//     if (!id) {
+//       return next(new ErrorHandler("No user ID provided!", 400));
+//     }
+
+//     const user = await User.findById(id).select("+password");
+
+//     if (!user) {
+//       return next(new ErrorHandler("user not found!", 400));
+//     }
+
+//     const isSamePassword = await user.comparePassword(newPassword);
+//     if (isSamePassword)
+//       return next(
+//         new ErrorHandler(
+//           "New password must be different from the previous one!",
+//           400
+//         )
+//       );
+
+//     if (newPassword.trim().length < 6 || newPassword.trim().length > 20) {
+//       return next(
+//         new ErrorHandler("Password must be between at least 6 characters!", 400)
+//       );
+//     }
+
+//     user.password = newPassword.trim();
+//     await user.save();
+
+//     res.status(201).json({
+//       success: true,
+//       message: `Password Reset Successfully', 'Now you can login with new password!`,
+//     });
+//   }
+// );

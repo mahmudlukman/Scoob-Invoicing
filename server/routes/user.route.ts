@@ -9,35 +9,47 @@ import {
   updateUserProfile,
 } from "../controllers/user.controller";
 import { authorizeRoles, isAuthenticated } from "../middleware/auth";
+import {
+  adminListLimiter,
+  updatePasswordLimiter,
+  uploadLimiter,
+} from "../utils/rateLimiter";
 
 const userRouter = express.Router();
 
 userRouter.get("/me", isAuthenticated, getMe);
-userRouter.put("/update-user-password", isAuthenticated, updatePassword);
+userRouter.put(
+  "/update-user-password",
+  isAuthenticated,
+  updatePasswordLimiter,
+  updatePassword,
+);
 userRouter.get("/get-user/:id", getUserById);
 userRouter.get(
   "/get-users",
   isAuthenticated,
   authorizeRoles("admin"),
-  getAllUsers
+  adminListLimiter,
+  getAllUsers,
 );
 userRouter.put(
   "/update-user-profile",
   isAuthenticated,
-  updateUserProfile
+  uploadLimiter,
+  updateUserProfile,
 );
 userRouter.put(
   "/update-user-status",
   isAuthenticated,
   authorizeRoles("admin"),
-  updateUserStatus
+  updateUserStatus,
 );
 
 userRouter.delete(
   "/delete-user/:id",
   isAuthenticated,
   authorizeRoles("admin"),
-  deleteUser
+  deleteUser,
 );
 
 export default userRouter;
