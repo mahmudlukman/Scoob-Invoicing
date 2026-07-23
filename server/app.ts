@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { errorMiddleware } from "./middleware/error";
 import compression from "compression";
 import helmet from "helmet";
-import limiter from "./utils/rateLimiter";
+import { limiter } from "./utils/rateLimiter";
 import type { CorsOptions } from "cors";
 import config from "./config";
 import authRouter from "./routes/auth.route";
