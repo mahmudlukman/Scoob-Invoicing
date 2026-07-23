@@ -27,6 +27,15 @@ import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
 
+const statusBadgeClasses = (status: Invoice["status"]) =>
+  `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+    status === "Paid"
+      ? "bg-emerald-100 text-emerald-800"
+      : status === "Pending"
+        ? "bg-amber-100 text-amber-800"
+        : "bg-red-100 text-red-800"
+  }`;
+
 const AllInvoices = () => {
   const navigate = useNavigate();
 
@@ -247,144 +256,232 @@ const AllInvoices = () => {
             )}
           </div>
         ) : (
-          <div className="w-[90vw] md:w-auto overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Invoice #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
+          <>
+            {/* Mobile: stacked cards (below md) */}
+            <div className="md:hidden divide-y divide-slate-200">
+              {filteredInvoices.map((invoice) => (
+                <div key={invoice._id} className="p-4 space-y-3">
+                  <div
+                    className="flex items-start justify-between gap-3 cursor-pointer"
+                    onClick={() => navigate(`/invoice/${invoice._id}`)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {invoice.invoiceNumber}
+                      </p>
+                      <p className="text-sm text-slate-600 truncate mt-0.5">
+                        {invoice.billTo.clientName}
+                      </p>
+                    </div>
+                    <span className={statusBadgeClasses(invoice.status)}>
+                      {invoice.status}
+                    </span>
+                  </div>
 
-              <tbody className="bg-white divide-y divide-slate-200">
-                {filteredInvoices.map((invoice) => (
-                  <tr key={invoice._id} className="hover:bg-slate-50">
-                    <td
-                      onClick={() => navigate(`/invoice/${invoice._id}`)}
-                      className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 cursor-pointer"
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => navigate(`/invoice/${invoice._id}`)}
+                  >
+                    <div>
+                      <p className="text-xs text-slate-500">Amount</p>
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                        ₦{addThousandsSeparator(invoice.total)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Due Date</p>
+                      <p className="text-sm text-slate-600 tabular-nums">
+                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => handleStatusChange(invoice)}
+                      isLoading={statusChangeLoading === invoice._id}
                     >
-                      {invoice.invoiceNumber}
-                    </td>
-
-                    <td
+                      {invoice.status === "Paid" ? "Mark Unpaid" : "Mark Paid"}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="ghost"
+                      aria-label="Edit Invoice"
                       onClick={() => navigate(`/invoice/${invoice._id}`)}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer"
                     >
-                      {invoice.billTo.clientName}
-                    </td>
-
-                    <td
-                      onClick={() => navigate(`/invoice/${invoice._id}`)}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer"
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="ghost"
+                      aria-label="Duplicate Invoice"
+                      onClick={() => handleDuplicate(invoice)}
+                      isLoading={duplicateLoading === invoice._id}
                     >
-                      ₦{addThousandsSeparator(invoice.total)}
-                    </td>
-
-                    <td
-                      onClick={() => navigate(`/invoice/${invoice._id}`)}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer"
+                      <Copy className="w-4 h-4 text-violet-500" />
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="ghost"
+                      aria-label="Delete Invoice"
+                      onClick={() =>
+                        setDeleteModal({ open: true, invoiceId: invoice._id })
+                      }
                     >
-                      {format(new Date(invoice.dueDate), "MMM d, yyyy")}
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          invoice.status === "Paid"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : invoice.status === "Pending"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-red-100 text-red-800"
-                        }`}
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                    {invoice.status !== "Paid" && (
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        aria-label="Generate Reminder"
+                        onClick={() => handleOpenReminderModel(invoice._id)}
                       >
-                        {invoice.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div
-                        className="flex items-center justify-end gap-2"
-                        onClick={(e) => e.stopPropagation()}
+                        <Mail className="w-4 h-4 text-blue-500" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop/tablet: table (md and up) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Due Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {filteredInvoices.map((invoice) => (
+                    <tr key={invoice._id} className="hover:bg-slate-50">
+                      <td
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                        className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 cursor-pointer"
                       >
-                        <Button
-                          size="small"
-                          variant="secondary"
-                          onClick={() => handleStatusChange(invoice)}
-                          isLoading={statusChangeLoading === invoice._id}
+                        {invoice.invoiceNumber}
+                      </td>
+
+                      <td
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                        className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer"
+                      >
+                        {invoice.billTo.clientName}
+                      </td>
+
+                      <td
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                        className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer tabular-nums"
+                      >
+                        ₦{addThousandsSeparator(invoice.total)}
+                      </td>
+
+                      <td
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                        className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer tabular-nums"
+                      >
+                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={statusBadgeClasses(invoice.status)}>
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div
+                          className="flex items-center justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {invoice.status === "Paid"
-                            ? "Mark Unpaid"
-                            : "Mark Paid"}
-                        </Button>
-                        <Tooltip text="Edit Invoice" position="top">
                           <Button
                             size="small"
-                            variant="ghost"
-                            onClick={() => navigate(`/invoice/${invoice._id}`)}
+                            variant="secondary"
+                            onClick={() => handleStatusChange(invoice)}
+                            isLoading={statusChangeLoading === invoice._id}
                           >
-                            <Edit className="w-4 h-4" />
+                            {invoice.status === "Paid"
+                              ? "Mark Unpaid"
+                              : "Mark Paid"}
                           </Button>
-                        </Tooltip>
-                        <Tooltip text="Duplicate Invoice" position="top">
-                          <Button
-                            size="small"
-                            variant="ghost"
-                            onClick={() => handleDuplicate(invoice)}
-                            title="Duplicate Invoice"
-                            isLoading={duplicateLoading === invoice._id}
-                          >
-                            <Copy className="w-4 h-4 text-violet-500" />
-                          </Button>
-                        </Tooltip>
-                        <Tooltip text="Delete Invoice" position="left">
-                          <Button
-                            size="small"
-                            variant="ghost"
-                            onClick={() =>
-                              setDeleteModal({
-                                open: true,
-                                invoiceId: invoice._id,
-                              })
-                            }
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
-                        </Tooltip>
-                        {invoice.status !== "Paid" && (
-                          <Tooltip text="Generate Reminder" position="left">
+                          <Tooltip text="Edit Invoice" position="top">
                             <Button
                               size="small"
                               variant="ghost"
                               onClick={() =>
-                                handleOpenReminderModel(invoice._id)
+                                navigate(`/invoice/${invoice._id}`)
                               }
                             >
-                              <Mail className="w-4 h-4 text-blue-500" />
+                              <Edit className="w-4 h-4" />
                             </Button>
                           </Tooltip>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          <Tooltip text="Duplicate Invoice" position="top">
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              onClick={() => handleDuplicate(invoice)}
+                              title="Duplicate Invoice"
+                              isLoading={duplicateLoading === invoice._id}
+                            >
+                              <Copy className="w-4 h-4 text-violet-500" />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip text="Delete Invoice" position="left">
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              onClick={() =>
+                                setDeleteModal({
+                                  open: true,
+                                  invoiceId: invoice._id,
+                                })
+                              }
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </Tooltip>
+                          {invoice.status !== "Paid" && (
+                            <Tooltip text="Generate Reminder" position="left">
+                              <Button
+                                size="small"
+                                variant="ghost"
+                                onClick={() =>
+                                  handleOpenReminderModel(invoice._id)
+                                }
+                              >
+                                <Mail className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
       {deleteModal.open && (

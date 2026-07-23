@@ -31,40 +31,62 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
     "#4A5565",
   ];
 
-  switch (templateId) {
-    case "01":
-      return (
-        <TemplateOne
-          invoice={invoice}
-          colorPalette={colorPaletteArray}
-          containerWidth={containerWidth}
-        />
-      );
-    case "02":
-      return (
-        <TemplateTwo
-          invoice={invoice}
-          colorPalette={colorPaletteArray}
-          containerWidth={containerWidth}
-        />
-      );
-    case "03":
-      return (
-        <TemplateThree
-          invoice={invoice}
-          colorPalette={colorPaletteArray}
-          containerWidth={containerWidth}
-        />
-      );
-    default:
-      return (
-        <TemplateOne
-          invoice={invoice}
-          colorPalette={colorPaletteArray}
-          containerWidth={containerWidth}
-        />
-      );
-  }
+  // Wrap the template in a div that enforces the container width
+  const renderTemplate = () => {
+    let template;
+    switch (templateId) {
+      case "01":
+        template = (
+          <TemplateOne
+            invoice={invoice}
+            colorPalette={colorPaletteArray}
+            containerWidth={containerWidth}
+          />
+        );
+        break;
+      case "02":
+        template = (
+          <TemplateTwo
+            invoice={invoice}
+            colorPalette={colorPaletteArray}
+            containerWidth={containerWidth}
+          />
+        );
+        break;
+      case "03":
+        template = (
+          <TemplateThree
+            invoice={invoice}
+            colorPalette={colorPaletteArray}
+            containerWidth={containerWidth}
+          />
+        );
+        break;
+      default:
+        template = (
+          <TemplateOne
+            invoice={invoice}
+            colorPalette={colorPaletteArray}
+            containerWidth={containerWidth}
+          />
+        );
+    }
+
+    return (
+      <div
+        style={{
+          width: containerWidth > 0 ? `${containerWidth}px` : "100%",
+          maxWidth: "100%",
+          margin: "0 auto",
+          overflow: "hidden",
+        }}
+      >
+        {template}
+      </div>
+    );
+  };
+
+  return renderTemplate();
 };
 
 export default RenderInvoice;

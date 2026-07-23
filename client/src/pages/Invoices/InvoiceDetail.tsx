@@ -1,5 +1,5 @@
 import { AlertCircle, Edit, Mail, Paintbrush, Printer } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
@@ -15,6 +15,8 @@ import Loading from "../../components/ui/Loading";
 import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 
+const INVOICE_WIDTH = 680;
+
 const DEFAULT_PALETTE = {
   primary: "#16A34A",
   secondary: "#15803D",
@@ -25,6 +27,8 @@ const InvoiceDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
 
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -39,6 +43,31 @@ const InvoiceDetail = () => {
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
 
   const invoice = invoiceResponse?.invoice || invoiceResponse;
+
+  // Handles responsive scaling/height calculations safely without render cycle leaks
+  useEffect(() => {
+    if (isEditing) return;
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const handleResize = () => {
+      const containerWidth = container.clientWidth ?? INVOICE_WIDTH;
+      const scale = Math.min(1, containerWidth / INVOICE_WIDTH);
+
+      inner.style.setProperty("--preview-scale", String(scale));
+
+      // Force parent wrapper height to map exact scaled canvas matrix bounds
+      const naturalHeight = inner.scrollHeight;
+      container.style.height = `${naturalHeight * scale}px`;
+    };
+
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [invoice, templateId, isEditing]);
 
   const handleUpdate = async (formData: InvoiceFormData) => {
     try {
@@ -143,14 +172,30 @@ const InvoiceDetail = () => {
         </div>
       </div>
 
-      <div className="rounded-lg overflow-hidden shadow-md border border-slate-200 print:shadow-none print:border-none">
-        <div ref={invoiceRef}>
-          <RenderInvoice
-            templateId={templateId}
-            invoice={invoiceWithLogo}
-            colorPalette={colorPalette}
-            containerWidth={0}
-          />
+      <div className="bg-slate-100 rounded-xl p-2 sm:p-6 overflow-hidden shadow-md border border-slate-200 print:shadow-none print:border-none print:p-0 print:bg-white">
+        <div
+          ref={containerRef}
+          className="rounded-lg overflow-hidden bg-white print:overflow-visible print:w-auto"
+          style={{ width: "100%" }}
+        >
+          <div
+            ref={innerRef}
+            className="origin-top-left print:transform-none"
+            style={{
+              transform: `scale(var(--preview-scale, 1))`,
+              width: `${INVOICE_WIDTH}px`,
+              marginBottom: `calc((var(--preview-scale, 1) - 1) * ${INVOICE_WIDTH}px * 1.414)`,
+            }}
+          >
+            <div ref={invoiceRef}>
+              <RenderInvoice
+                templateId={templateId}
+                invoice={invoiceWithLogo}
+                colorPalette={colorPalette}
+                containerWidth={INVOICE_WIDTH}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </>

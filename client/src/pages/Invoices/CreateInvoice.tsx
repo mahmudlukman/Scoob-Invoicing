@@ -135,10 +135,23 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     } else if (index !== undefined) {
       const newItems = [...formData.items];
 
-      // Allow empty inputs temporarily so users can backspace and type values smoothly
+      // Allow empty inputs temporarily so users can backspace and type values smoothly,
+      // but clamp any parsed number to a non-negative value (quantity/price/tax should
+      // never go below 0). Tax is additionally capped at 100%.
       let updatedValue: string | number = value;
       if (name !== "name") {
-        updatedValue = value === "" ? "" : parseFloat(value);
+        if (value === "") {
+          updatedValue = "";
+        } else {
+          const parsed = parseFloat(value);
+          if (isNaN(parsed)) {
+            updatedValue = "";
+          } else {
+            const nonNegative = Math.max(0, parsed);
+            updatedValue =
+              name === "taxPercent" ? Math.min(100, nonNegative) : nonNegative;
+          }
+        }
       }
 
       newItems[index] = {
@@ -357,26 +370,132 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50">
           <h3 className="text-lg font-semibold text-slate-900">Items</h3>
         </div>
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards (one per item) */}
+        <div className="md:hidden divide-y divide-slate-200">
+          {formData.items.map((item, index) => {
+            const qty = Number(item.quantity) || 0;
+            const price = Number(item.unitPrice) || 0;
+            const tax = Number(item.taxPercent) || 0;
+            const calculatedItemTotal = qty * price * (1 + tax / 100);
+
+            return (
+              <div key={index} className="p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                      Item
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={item.name}
+                      onChange={(e) => handleInputChange(e, undefined, index)}
+                      placeholder="Item name"
+                      className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Remove item"
+                    onClick={() => handleRemoveItem(index)}
+                    className="mt-6 h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-lg hover:bg-red-50 active:bg-red-100"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                    Price
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                      ₦
+                    </span>
+                    <input
+                      type="number"
+                      name="unitPrice"
+                      required
+                      min="0"
+                      value={item.unitPrice}
+                      onChange={(e) => handleInputChange(e, undefined, index)}
+                      placeholder="0.00"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="w-full h-12 pl-7 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 text-base font-medium tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                      Qty
+                    </label>
+                    <input
+                      type="number"
+                      name="quantity"
+                      required
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleInputChange(e, undefined, index)}
+                      placeholder="1"
+                      inputMode="numeric"
+                      className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                      Tax (%)
+                    </label>
+                    <input
+                      type="number"
+                      name="taxPercent"
+                      min="0"
+                      max="100"
+                      value={item.taxPercent}
+                      onChange={(e) => handleInputChange(e, undefined, index)}
+                      placeholder="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-1 text-sm">
+                  <span className="text-slate-500">Line total</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">
+                    ₦{formatCurrencyValue(calculatedItemTotal)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop / tablet: table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Item
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
                   Qty
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-36">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-44">
                   Price
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-28">
                   Tax (%)
                 </th>
-                <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-36">
                   Total
                 </th>
-                <th className="px-2 sm:px-6 py-3"></th>
+                <th className="px-6 py-3 w-12"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
@@ -388,7 +507,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
 
                 return (
                   <tr key={index} className="hover:bg-slate-50">
-                    <td className="px-2 sm:px-6 py-4">
+                    <td className="px-6 py-4">
                       <input
                         type="text"
                         name="name"
@@ -399,7 +518,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                         className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </td>
-                    <td className="px-2 sm:px-6 py-4">
+                    <td className="px-6 py-4">
                       <input
                         type="number"
                         name="quantity"
@@ -408,37 +527,46 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                         value={item.quantity}
                         onChange={(e) => handleInputChange(e, undefined, index)}
                         placeholder="1"
-                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </td>
-                    <td className="px-2 sm:px-6 py-4">
-                      <input
-                        type="number"
-                        name="unitPrice"
-                        required
-                        min="0"
-                        value={item.unitPrice}
-                        onChange={(e) => handleInputChange(e, undefined, index)}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+                    <td className="px-6 py-4">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                          ₦
+                        </span>
+                        <input
+                          type="number"
+                          name="unitPrice"
+                          required
+                          min="0"
+                          value={item.unitPrice}
+                          onChange={(e) =>
+                            handleInputChange(e, undefined, index)
+                          }
+                          placeholder="0.00"
+                          step="0.01"
+                          className="w-full h-10 pl-7 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
                     </td>
-                    <td className="px-2 sm:px-6 py-4">
+                    <td className="px-6 py-4">
                       <input
                         type="number"
                         name="taxPercent"
+                        min="0"
+                        max="100"
                         value={item.taxPercent}
                         onChange={(e) => handleInputChange(e, undefined, index)}
                         placeholder="0"
                         step="0.01"
-                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </td>
-                    <td className="px-2 sm:px-6 py-4 text-sm text-slate-700 font-medium">
+                    <td className="px-6 py-4 text-sm text-slate-700 font-medium tabular-nums">
                       ₦{formatCurrencyValue(calculatedItemTotal)}
                     </td>
-                    <td className="px-2 sm:px-6 py-4">
+                    <td className="px-6 py-4">
                       <Button
                         type="button"
                         variant="ghost"

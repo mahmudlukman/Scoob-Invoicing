@@ -11,6 +11,7 @@ const config = {
   ACTIVATION_SECRET: process.env.ACTIVATION_SECRET!,
   JWT_SECRET_KEY: process.env.JWT_SECRET_KEY!,
   REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
+  COOKIE_DOMAIN: process.env.COOKIE_DOMAIN!,
   JWT_EXPIRES: process.env.JWT_EXPIRES as ms.StringValue,
   REFRESH_TOKEN_EXPIRES: process.env.REFRESH_TOKEN_EXPIRES as ms.StringValue,
   defaultResLimit: 20,

@@ -13,6 +13,7 @@ import userRouter from "./routes/user.route";
 import invoiceRouter from "./routes/invoice.route";
 import aiRouter from "./routes/ai.route";
 import analyticsRouter from "./routes/analytics.route";
+import { generateCSRFToken } from "./middleware/csrf";
 
 export const app = express();
 // Load environment variables from .env file
@@ -53,6 +54,9 @@ app.use(
 
 // Use Helmet to enhance security by setting various HTTP headers
 app.use(helmet());
+
+// CSRF protection
+app.use(generateCSRFToken);
 
 // Apply rate limiting middleware to prevent excessive requests and enhance security
 app.use(limiter);

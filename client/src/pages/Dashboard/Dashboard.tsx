@@ -8,6 +8,15 @@ import AIInsightsCard from "../../components/ui/AllInsightsCard";
 import { addThousandsSeparator } from "../../utils/helper";
 import Loading from "../../components/ui/Loading";
 
+const statusBadgeClasses = (status: string) =>
+  `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+    status === "Paid"
+      ? "bg-emerald-100 text-emerald-800"
+      : status === "Pending"
+        ? "bg-amber-100 text-amber-800"
+        : "bg-red-100 text-red-800"
+  }`;
+
 const Dashboard = () => {
   const navigate = useNavigate();
 
@@ -143,65 +152,106 @@ const Dashboard = () => {
         </div>
 
         {recentInvoices.length > 0 ? (
-          <div className="w-[90vw] md:w-auto overflow-x-auto">
-            <table className="w-full min-w-[600px] divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {recentInvoices.map((invoice) => (
-                  <tr
-                    key={invoice._id}
-                    className="hover:bg-slate-50 cursor-pointer"
-                    onClick={() => navigate(`/invoice/${invoice._id}`)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">
+          <>
+            {/* Mobile: stacked cards (below md) */}
+            <div className="md:hidden divide-y divide-slate-200">
+              {recentInvoices.map((invoice) => (
+                <div
+                  key={invoice._id}
+                  className="p-4 space-y-3 cursor-pointer active:bg-slate-50"
+                  onClick={() => navigate(`/invoice/${invoice._id}`)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
                         {invoice.billTo.clientName}
-                      </div>
-                      <div className="text-sm text-slate-500">
+                      </p>
+                      <p className="text-sm text-slate-500 truncate mt-0.5">
                         #{invoice.invoiceNumber}
-                      </div>
-                    </td>
+                      </p>
+                    </div>
+                    <span className={statusBadgeClasses(invoice.status)}>
+                      {invoice.status}
+                    </span>
+                  </div>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
-                      ₦{addThousandsSeparator(Number(invoice.total.toFixed(2)))}
-                    </td>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-slate-500">Amount</p>
+                      <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                        ₦
+                        {addThousandsSeparator(
+                          Number(invoice.total.toFixed(2)),
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Due Date</p>
+                      <p className="text-sm text-slate-600 tabular-nums">
+                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          invoice.status === "Paid"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : invoice.status === "Pending"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {invoice.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {format(new Date(invoice.dueDate), "MMM d, yyyy")}
-                    </td>
+            {/* Desktop/tablet: table (md and up) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full min-w-[600px] divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Due Date
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {recentInvoices.map((invoice) => (
+                    <tr
+                      key={invoice._id}
+                      className="hover:bg-slate-50 cursor-pointer"
+                      onClick={() => navigate(`/invoice/${invoice._id}`)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-slate-900">
+                          {invoice.billTo.clientName}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          #{invoice.invoiceNumber}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 tabular-nums">
+                        ₦
+                        {addThousandsSeparator(
+                          Number(invoice.total.toFixed(2)),
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={statusBadgeClasses(invoice.status)}>
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 tabular-nums">
+                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
