@@ -1,0 +1,18 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const user_controller_1 = require("../controllers/user.controller");
+const auth_1 = require("../middleware/auth");
+const rateLimiter_1 = require("../utils/rateLimiter");
+const userRouter = express_1.default.Router();
+userRouter.get("/me", auth_1.isAuthenticated, user_controller_1.getMe);
+userRouter.put("/update-user-password", auth_1.isAuthenticated, rateLimiter_1.updatePasswordLimiter, user_controller_1.updatePassword);
+userRouter.get("/get-user/:id", user_controller_1.getUserById);
+userRouter.get("/get-users", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), rateLimiter_1.adminListLimiter, user_controller_1.getAllUsers);
+userRouter.put("/update-user-profile", auth_1.isAuthenticated, rateLimiter_1.uploadLimiter, user_controller_1.updateUserProfile);
+userRouter.put("/update-user-status", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), user_controller_1.updateUserStatus);
+userRouter.delete("/delete-user/:id", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), user_controller_1.deleteUser);
+exports.default = userRouter;

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skoob Invoice – Payment Reminder</title>
+    <style>
+      /* Base Styles */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: #f8f9fb;
+        color: #2c3e50;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        text-decoration: none;
+      }
+
+      .wrapper {
+        width: 100%;
+        background-color: #f8f9fb;
+        table-layout: fixed;
+        padding: 40px 0;
+      }
+
+      .container {
+        max-width: 580px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #eaeef2;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        overflow: hidden;
+      }
+
+      /* Header */
+      .header {
+        background-color: #0b132b;
+        color: #ffffff;
+        text-align: center;
+        padding: 40px 24px;
+        border-bottom: 3px solid #c5a059; /* Premium gold accent */
+      }
+
+      .header h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      /* Body */
+      .body {
+        padding: 40px 36px;
+      }
+
+      .body p {
+        font-size: 15px;
+        line-height: 1.7;
+        color: #4a5568;
+        margin: 0 0 20px 0;
+      }
+
+      .body p.greeting {
+        font-size: 17px;
+        color: #1a202c;
+      }
+
+      /* Invoice Details Card */
+      .invoice-details {
+        background-color: #fcfcfd;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin: 24px 0;
+        border-left: 4px solid #c5a059; /* Luxury gold highlight for attention */
+      }
+
+      .invoice-details p {
+        margin: 8px 0;
+        font-size: 14px;
+        color: #2d3748;
+      }
+
+      .invoice-details p strong {
+        color: #1a202c;
+      }
+
+      /* Divider */
+      .divider {
+        height: 1px;
+        background-color: #edf2f7;
+        margin: 30px 0;
+      }
+
+      /* Footer */
+      .footer {
+        background-color: #fcfcfd;
+        text-align: center;
+        font-size: 13px;
+        padding: 28px 24px;
+        color: #718096;
+        border-top: 1px solid #edf2f7;
+      }
+
+      .footer p {
+        margin: 6px 0;
+        line-height: 1.5;
+      }
+
+      .footer a {
+        color: #0b132b;
+        font-weight: 600;
+        text-decoration: underline;
+      }
+
+      /* Responsive */
+      @media screen and (max-width: 600px) {
+        .wrapper {
+          padding: 10px;
+        }
+        .container {
+          border-radius: 8px;
+        }
+        .body {
+          padding: 28px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <!-- Header -->
+        <div class="header">
+          <h2>Payment Reminder</h2>
+        </div>
+
+        <!-- Body -->
+        <div class="body">
+          <p class="greeting">Dear <strong><%= clientName %></strong>,</p>
+
+          <%= emailBody %>
+
+          <div class="invoice-details">
+            <p><strong>Invoice Number:</strong> <%= invoiceNumber %></p>
+            <p><strong>Amount Due:</strong> ₦<%= amount %></p>
+            <p><strong>Due Date:</strong> <%= dueDate %></p>
+          </div>
+
+          <p>
+            If you have already made this payment, please disregard this email.
+            If you have any questions or require assistance, feel free to reach
+            out.
+          </p>
+
+          <div class="divider"></div>
+
+          <p style="font-size: 14px; color: #4a5568; margin-bottom: 0">
+            Best regards,<br />
+            <strong style="color: #1a202c">Skoob Invoice Team</strong>
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>This is an automated payment reminder from Skoob Invoice.</p>
+          <p style="color: #cbd5e0; margin-top: 12px">
+            &copy; <%= new Date().getFullYear() %> Skoob Invoice. All rights
+            reserved.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
