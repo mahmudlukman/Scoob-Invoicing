@@ -65,7 +65,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({ data }) => {
           <Tooltip content={<CustomTooltip />} />
           
           <Bar dataKey="amount" radius={[10, 10, 0, 0]} fill="#875cf5">
-            {data.map((entry, index) => {
+            {data.map((_, index) => {
               const color = index % 2 === 0 ? "#875cf5" : "#cfbefb";
 
               return <rect key={index} fill={color} />;
