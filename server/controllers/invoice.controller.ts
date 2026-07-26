@@ -69,47 +69,6 @@ export const getInvoices = catchAsyncError(
   },
 );
 
-// export const getInvoices = catchAsyncError(
-//   async (req: Request, res: Response, next: NextFunction) => {
-//     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-
-//     const pageSize = Math.min(
-//       50,
-//       Math.max(1, parseInt(req.query.pageSize as string) || 10)
-//     );
-
-//     const skipAmount = (page - 1) * pageSize;
-
-//     const user = await User.findById(req.user?._id);
-
-//     const [invoices, totalInvoices] = await Promise.all([
-//       Invoice.find({ user })
-//         .populate("user", "name email")
-//         .sort({ createdAt: -1 })
-//         .skip(skipAmount)
-//         .limit(pageSize),
-
-//       Invoice.countDocuments({ user }),
-//     ]);
-
-//     const totalPages = Math.ceil(totalInvoices / pageSize);
-
-//     res.status(200).json({
-//       success: true,
-//       invoices,
-//       pagination: {
-//         currentPage: page,
-//         pageSize,
-//         totalItems: totalInvoices,
-//         totalPages,
-//         hasNextPage: page < totalPages,
-//         hasPrevPage: page > 1,
-//         isNext: page < totalPages,
-//       },
-//     });
-//   }
-// );
-
 // @desc        Get single invoices by ID
 // @route       GET /api/v1/invoices/:id
 // @access      Private
@@ -187,7 +146,6 @@ export const updateInvoice = catchAsyncError(
 
     if (!updatedInvoice)
       return res.status(404).json({ message: "Invoice not found" });
-    
 
     res.status(200).json({
       success: true,
@@ -220,11 +178,9 @@ export const duplicateInvoice = catchAsyncError(
       return max;
     }, 0);
 
-    // Preserve the prefix from the original (e.g. "INV-" from "INV-001")
     const prefixMatch = original.invoiceNumber.match(/^(.*?)(\d+)$/);
     const prefix = prefixMatch ? prefixMatch[1] : "INV-";
 
-    // Pad to match the original's digit length (e.g. 001 → 3 digits), minimum 3
     const originalDigits = prefixMatch ? prefixMatch[2].length : 3;
     const padLength = Math.max(originalDigits, String(maxNumber + 1).length);
     const newInvoiceNumber =
@@ -273,6 +229,74 @@ export const updateInvoicePreferences = catchAsyncError(
     res
       .status(200)
       .json({ success: true, invoicePreferences: user.invoicePreferences });
+  },
+);
+
+// @desc        Get income by month for logged-in user (paid invoices only, calendar year)
+// @route       GET /api/v1/income-by-month
+// @access      Private
+export const getIncomeByMonth = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const year = Number(req.query.year) || currentYear;
+
+    const startDate = new Date(year, 0, 1); // Jan 1, 00:00
+    const endDate = new Date(year + 1, 0, 1); // Jan 1 of next year (exclusive upper bound)
+
+    const rawIncomeByMonth = await Invoice.aggregate([
+      {
+        $match: {
+          user: user?._id,
+          status: "Paid",
+          createdAt: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          income: { $sum: "$total" },
+          invoiceCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Lookup so we can fill in months with no paid invoices
+    const incomeMap = new Map<
+      number,
+      { income: number; invoiceCount: number }
+    >();
+    rawIncomeByMonth.forEach((item) => {
+      incomeMap.set(item._id.month, {
+        income: item.income,
+        invoiceCount: item.invoiceCount,
+      });
+    });
+
+    // If it's the current year, only show up to the current month.
+    // Past years always show all 12 months (they've fully happened).
+    const monthsToShow = year === currentYear ? now.getMonth() + 1 : 12;
+
+    const incomeByMonth = Array.from({ length: monthsToShow }, (_, i) => {
+      const month = i + 1;
+      const existing = incomeMap.get(month);
+      return {
+        _id: { year, month },
+        income: existing?.income || 0,
+        invoiceCount: existing?.invoiceCount || 0,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      year,
+      incomeByMonth,
+    });
   },
 );
 

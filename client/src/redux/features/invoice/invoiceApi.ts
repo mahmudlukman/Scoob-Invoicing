@@ -1,6 +1,17 @@
 import type { Invoice } from "../../../@types";
 import { apiSlice } from "../api/apiSlice";
 
+interface IncomeByMonthItem {
+  _id: { year: number; month: number };
+  income: number;
+  invoiceCount: number;
+}
+
+interface IncomeByMonthResponse {
+  success: boolean;
+  incomeByMonth: IncomeByMonthItem[];
+}
+
 export const userApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createInvoice: builder.mutation({
@@ -51,7 +62,19 @@ export const userApi = apiSlice.injectEndpoints({
         method: "PATCH",
         body: data,
       }),
-      invalidatesTags: ["User"],
+      invalidatesTags: ["Invoice"],
+    }),
+    getIncomeByMonth: builder.query<
+      IncomeByMonthResponse,
+      { months?: number } | void
+    >({
+      query: (params) => ({
+        url: "income-by-month",
+        method: "GET",
+        params: params?.months ? { months: params.months } : undefined,
+        credentials: "include" as const,
+      }),
+      providesTags: [{ type: "Invoice", id: "LIST" }],
     }),
     deleteInvoice: builder.mutation({
       query: (id) => ({
@@ -71,5 +94,6 @@ export const {
   useUpdateInvoiceMutation,
   useDuplicateInvoiceMutation,
   useUpdateInvoicePreferencesMutation,
+  useGetIncomeByMonthQuery,
   useDeleteInvoiceMutation,
 } = userApi;

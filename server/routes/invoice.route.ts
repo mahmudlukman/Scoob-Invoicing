@@ -4,6 +4,7 @@ import {
   createInvoice,
   deleteInvoice,
   duplicateInvoice,
+  getIncomeByMonth,
   getInvoiceById,
   getInvoices,
   updateInvoice,
@@ -38,6 +39,8 @@ invoiceRouter.patch(
   invoiceWriteLimiter,
   updateInvoicePreferences,
 );
+invoiceRouter.get("/income-by-month", isAuthenticated, getIncomeByMonth);
+
 invoiceRouter.delete(
   "/delete-invoice/:id",
   isAuthenticated,

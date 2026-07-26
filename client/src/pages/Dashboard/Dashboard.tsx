@@ -7,6 +7,7 @@ import { useGetAllInvoicesQuery } from "../../redux/features/invoice/invoiceApi"
 import AIInsightsCard from "../../components/ui/AllInsightsCard";
 import { addThousandsSeparator } from "../../utils/helper";
 import Loading from "../../components/ui/Loading";
+import IncomeByMonthChart from "../../components/analytics/IncomeByMonth";
 
 const statusBadgeClasses = (status: string) =>
   `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -19,8 +20,6 @@ const statusBadgeClasses = (status: string) =>
 
 const Dashboard = () => {
   const navigate = useNavigate();
-
-  // Fetch all invoices using RTK Query
   const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
 
   const invoices = React.useMemo(() => {
@@ -139,6 +138,9 @@ const Dashboard = () => {
 
       {/* AI Insights Card */}
       <AIInsightsCard />
+
+      {/* Income by Month Chart */}
+      <IncomeByMonthChart />
 
       {/* Recent Invoices */}
       <div className="w-full bg-white border border-slate-200 rounded-lg shadow-sm shadow-gray-100 overflow-hidden">
