@@ -14,5 +14,6 @@ invoiceRouter.get("/invoice/:id", auth_1.isAuthenticated, invoice_controller_1.g
 invoiceRouter.put("/update-invoice/:id", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.updateInvoice);
 invoiceRouter.post("/duplicate-invoice/:id", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.duplicateInvoice);
 invoiceRouter.patch("/update-invoice-preferences", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.updateInvoicePreferences);
+invoiceRouter.get("/income-by-month", auth_1.isAuthenticated, invoice_controller_1.getIncomeByMonth);
 invoiceRouter.delete("/delete-invoice/:id", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.deleteInvoice);
 exports.default = invoiceRouter;
