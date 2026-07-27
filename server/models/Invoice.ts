@@ -33,6 +33,34 @@ const ItemSchema = new Schema<IItem>({
   },
 });
 
+// Payment interface
+export interface IPayment {
+  _id?: mongoose.Types.ObjectId;
+  amount: number;
+  date: Date;
+  method?: string;
+  note?: string;
+}
+
+// Payment schema definition
+const PaymentSchema = new Schema<IPayment>({
+  amount: {
+    type: Number,
+    required: true,
+    min: 0.01,
+  },
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+  method: {
+    type: String,
+  },
+  note: {
+    type: String,
+  },
+});
+
 // Invoice interface
 export interface IInvoice extends Document {
   user: mongoose.Types.ObjectId;
@@ -55,10 +83,11 @@ export interface IInvoice extends Document {
   items: IItem[];
   notes?: string;
   paymentTerms: string;
-  status: "Paid" | "Unpaid" | "Pending";
+  status: "Paid" | "Unpaid" | "Pending" | "Partially Paid";
   subtotal?: number;
   taxTotal?: number;
   total?: number;
+  payments: IPayment[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,12 +133,16 @@ const InvoiceSchema = new Schema<IInvoice>(
     },
     status: {
       type: String,
-      enum: ["Paid", "Unpaid", "Pending"],
+      enum: ["Paid", "Unpaid", "Pending", "Partially Paid"],
       default: "Unpaid",
     },
     subtotal: Number,
     taxTotal: Number,
     total: Number,
+    payments: {
+      type: [PaymentSchema],
+      default: [],
+    },
   },
   { timestamps: true },
 );

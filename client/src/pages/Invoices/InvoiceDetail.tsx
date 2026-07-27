@@ -1,19 +1,37 @@
-import { AlertCircle, Edit, Mail, Paintbrush, Printer } from "lucide-react";
+import {
+  AlertCircle,
+  Edit,
+  Mail,
+  Paintbrush,
+  Printer,
+  Banknote,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
+import { format } from "date-fns";
 import Button from "../../components/ui/Button";
 import CreateInvoice from "./CreateInvoice";
 import ReminderModel from "../../components/invoices/ReminderModel";
+import LogPaymentModal from "../../components/invoices/LogPaymentModal";
 import {
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
+  useDeletePaymentMutation,
 } from "../../redux/features/invoice/invoiceApi";
-import type { InvoiceFormData, RootState, ServerError } from "../../@types";
+import type {
+  InvoiceFormData,
+  Payment,
+  RootState,
+  ServerError,
+} from "../../@types";
 import Loading from "../../components/ui/Loading";
 import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
+import { addThousandsSeparator } from "../../utils/helper";
 
 const INVOICE_WIDTH = 680;
 
@@ -38,9 +56,16 @@ const InvoiceDetail = () => {
 
   const { data: invoiceResponse, isLoading, isError } = useGetInvoiceQuery(id);
   const [updateInvoice] = useUpdateInvoiceMutation();
+  const [deletePayment, { isLoading: isDeletingPayment }] =
+    useDeletePaymentMutation();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isLogPaymentOpen, setIsLogPaymentOpen] = useState(false);
+  const [deletePaymentModal, setDeletePaymentModal] = useState<{
+    open: boolean;
+    paymentId: string | null;
+  }>({ open: false, paymentId: null });
 
   const invoice = invoiceResponse?.invoice || invoiceResponse;
 
@@ -84,6 +109,26 @@ const InvoiceDetail = () => {
     }
   };
 
+  const handleDeletePayment = async () => {
+    if (!deletePaymentModal.paymentId || !id) return;
+
+    try {
+      await deletePayment({
+        invoiceId: id,
+        paymentId: deletePaymentModal.paymentId,
+      }).unwrap();
+      toast.success("Payment removed");
+      setDeletePaymentModal({ open: false, paymentId: null });
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to remove payment",
+      );
+    }
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: invoiceRef,
     documentTitle: `Invoice-${invoice?.invoiceNumber}`,
@@ -123,6 +168,10 @@ const InvoiceDetail = () => {
     },
   };
 
+  const payments = invoice.payments || [];
+  const amountPaid = invoice.amountPaid ?? 0;
+  const balanceDue = invoice.balanceDue ?? invoice.total;
+
   return (
     <>
       <ReminderModel
@@ -130,15 +179,37 @@ const InvoiceDetail = () => {
         onClose={() => setIsReminderModalOpen(false)}
         invoiceId={id!}
       />
+      <LogPaymentModal
+        isOpen={isLogPaymentOpen}
+        onClose={() => setIsLogPaymentOpen(false)}
+        invoiceId={id ?? null}
+        balanceDue={balanceDue}
+      />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 print:hidden">
-        <h1 className="text-2xl font-semibold text-slate-900 mb-4 sm:mb-0">
-          Invoice{" "}
-          <span className="font-mono text-slate-500">
-            {invoice.invoiceNumber}
-          </span>
-        </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 print:hidden gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Invoice{" "}
+            <span className="font-mono text-slate-500">
+              {invoice.invoiceNumber}
+            </span>
+          </h1>
+          {invoice.isOverdue && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-2 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+              Overdue
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {invoice.status !== "Paid" && (
+            <Button
+              variant="secondary"
+              onClick={() => setIsLogPaymentOpen(true)}
+              icon={Banknote}
+            >
+              Log Payment
+            </Button>
+          )}
           {invoice.status !== "Paid" && (
             <Button
               variant="secondary"
@@ -198,6 +269,119 @@ const InvoiceDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Payment History */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm shadow-gray-100 border border-slate-200 overflow-hidden print:hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h3 className="text-lg font-semibold text-slate-900">
+            Payment History
+          </h3>
+          <div className="flex gap-6 text-sm">
+            <div>
+              <span className="text-slate-500">Total: </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                ₦{addThousandsSeparator(invoice.total)}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500">Paid: </span>
+              <span className="font-semibold text-emerald-700 tabular-nums">
+                ₦{addThousandsSeparator(amountPaid)}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500">Balance: </span>
+              <span className="font-semibold text-slate-900 tabular-nums">
+                ₦{addThousandsSeparator(balanceDue)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {payments.length === 0 ? (
+          <div className="p-6 text-center text-sm text-slate-500">
+            No payments logged yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-200">
+            {payments.map((payment: Payment) => (
+              <div
+                key={payment._id}
+                className="p-4 sm:px-6 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 tabular-nums">
+                    ₦{addThousandsSeparator(payment.amount)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {format(new Date(payment.date), "MMM d, yyyy")}
+                    {payment.method ? ` • ${payment.method}` : ""}
+                  </p>
+                  {payment.note && (
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      {payment.note}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="small"
+                  variant="ghost"
+                  aria-label="Delete payment"
+                  onClick={() =>
+                    setDeletePaymentModal({
+                      open: true,
+                      paymentId: payment._id,
+                    })
+                  }
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete Payment Confirmation */}
+      {deletePaymentModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Remove Payment
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to remove this payment record? The
+                invoice's status and balance will be recalculated.
+              </p>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    setDeletePaymentModal({ open: false, paymentId: null })
+                  }
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeletePayment}
+                  disabled={isDeletingPayment}
+                >
+                  {isDeletingPayment ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Removing...
+                    </span>
+                  ) : (
+                    "Remove Payment"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

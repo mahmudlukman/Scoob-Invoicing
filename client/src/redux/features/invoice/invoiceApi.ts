@@ -12,6 +12,21 @@ interface IncomeByMonthResponse {
   incomeByMonth: IncomeByMonthItem[];
 }
 
+interface AddPaymentPayload {
+  invoiceId: string;
+  data: {
+    amount: number;
+    date?: string;
+    method?: string;
+    note?: string;
+  };
+}
+
+interface DeletePaymentPayload {
+  invoiceId: string;
+  paymentId: string;
+}
+
 export const userApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createInvoice: builder.mutation({
@@ -84,6 +99,30 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
+    addPayment: builder.mutation<
+      { success: boolean; invoice: Invoice },
+      AddPaymentPayload
+    >({
+      query: ({ invoiceId, data }) => ({
+        url: `invoices/${invoiceId}/payments`,
+        method: "POST",
+        body: data,
+        credentials: "include" as const,
+      }),
+      invalidatesTags: [{ type: "Invoice", id: "LIST" }],
+    }),
+
+    deletePayment: builder.mutation<
+      { success: boolean; invoice: Invoice },
+      DeletePaymentPayload
+    >({
+      query: ({ invoiceId, paymentId }) => ({
+        url: `invoices/${invoiceId}/payments/${paymentId}`,
+        method: "DELETE",
+        credentials: "include" as const,
+      }),
+      invalidatesTags: [{ type: "Invoice", id: "LIST" }],
+    }),
   }),
 });
 
@@ -96,4 +135,6 @@ export const {
   useUpdateInvoicePreferencesMutation,
   useGetIncomeByMonthQuery,
   useDeleteInvoiceMutation,
+  useAddPaymentMutation,
+  useDeletePaymentMutation,
 } = userApi;

@@ -129,7 +129,7 @@ export const NAVIGATION_MENU = [
   },
   {
     id: "Customers",
-    name: "All Customers",
+    name: "Customers",
     icon: HandPlatter,
     visible: ["user", "admin"] as const,
   },

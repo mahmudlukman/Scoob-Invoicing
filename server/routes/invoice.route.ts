@@ -1,8 +1,10 @@
 import express from "express";
 import { isAuthenticated } from "../middleware/auth";
 import {
+  addPayment,
   createInvoice,
   deleteInvoice,
+  deletePayment,
   duplicateInvoice,
   getIncomeByMonth,
   getInvoiceById,
@@ -46,6 +48,20 @@ invoiceRouter.delete(
   isAuthenticated,
   invoiceWriteLimiter,
   deleteInvoice,
+);
+
+invoiceRouter.post(
+  "/invoices/:id/payments",
+  isAuthenticated,
+  invoiceWriteLimiter,
+  addPayment,
+);
+
+invoiceRouter.delete(
+  "/invoices/:id/payments/:paymentId",
+  isAuthenticated,
+  invoiceWriteLimiter,
+  deletePayment,
 );
 
 export default invoiceRouter;

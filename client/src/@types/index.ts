@@ -36,18 +36,6 @@ export interface User {
   createdAt: string;
 }
 
-// export interface User {
-//   _id: string;
-//   name: string;
-//   email: string;
-//   businessLogo?: BusinessLogo;
-//   businessName: string;
-//   address: string;
-//   phone: string;
-//   role: string;
-//   isActive?: boolean;
-// }
-
 export interface ServerError {
   status?: number;
   data?: {
@@ -56,9 +44,17 @@ export interface ServerError {
   message?: string;
 }
 
+export interface Payment {
+  _id: string;
+  amount: number;
+  date: string;
+  method?: string;
+  note?: string;
+}
+
 export interface Invoice {
   _id: string;
-  status: string;
+  status: "Paid" | "Unpaid" | "Pending" | "Partially Paid";
   total: number;
   subtotal: number;
   taxTotal: number;
@@ -70,19 +66,11 @@ export interface Invoice {
   items: InvoiceItem[];
   billFrom: BillInfo;
   billTo: BillInfo;
+  payments: Payment[];
+  amountPaid: number;
+  balanceDue: number;
+  isOverdue: boolean;
 }
-
-// export interface Invoice {
-//   _id: string;
-//   status: string;
-//   total: number;
-//   invoiceDate: string;
-//   dueDate: string;
-//   invoiceNumber: string;
-//   billTo: {
-//     clientName: string;
-//   };
-// }
 
 export interface InvoiceItem {
   name: string;
@@ -113,7 +101,7 @@ export interface InvoiceFormData {
   subtotal?: number;
   taxTotal?: number;
   total?: number;
-  status?: string;
+  status?: "Paid" | "Unpaid" | "Pending" | "Partially Paid";
   saveCustomer?: boolean;
 }
 

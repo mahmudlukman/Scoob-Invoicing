@@ -11,18 +11,19 @@ import {
   Sparkles,
   Trash2,
   Copy,
+  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import Button from "../../components/ui/Button";
 import {
   useGetAllInvoicesQuery,
   useDeleteInvoiceMutation,
-  useUpdateInvoiceMutation,
   useDuplicateInvoiceMutation,
 } from "../../redux/features/invoice/invoiceApi";
 import type { Invoice, ServerError } from "../../@types";
 import ReminderModel from "../../components/invoices/ReminderModel";
 import CreateWithAIModel from "../../components/invoices/CreateWithAIModel";
+import LogPaymentModal from "../../components/invoices/LogPaymentModal";
 import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
@@ -31,22 +32,27 @@ const statusBadgeClasses = (status: Invoice["status"]) =>
   `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
     status === "Paid"
       ? "bg-emerald-100 text-emerald-800"
-      : status === "Pending"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-red-100 text-red-800"
+      : status === "Partially Paid"
+        ? "bg-blue-100 text-blue-800"
+        : status === "Pending"
+          ? "bg-amber-100 text-amber-800"
+          : "bg-red-100 text-red-800"
   }`;
+
+// Small standalone badge for overdue, rendered alongside the status badge
+const OverdueBadge = () => (
+  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+    Overdue
+  </span>
+);
 
 const AllInvoices = () => {
   const navigate = useNavigate();
 
   const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
   const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
-  const [updateInvoice] = useUpdateInvoiceMutation();
   const [duplicateInvoice] = useDuplicateInvoiceMutation();
   const [duplicateLoading, setDuplicateLoading] = useState<string | null>(null);
-  const [statusChangeLoading, setStatusChangeLoading] = useState<string | null>(
-    null,
-  );
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -54,6 +60,11 @@ const AllInvoices = () => {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
     null,
   );
+
+  const [logPaymentModal, setLogPaymentModal] = useState<{
+    open: boolean;
+    invoice: Invoice | null;
+  }>({ open: false, invoice: null });
 
   const invoices = useMemo(() => {
     return invoicesData?.invoices || [];
@@ -102,30 +113,13 @@ const AllInvoices = () => {
     }
   };
 
-  const handleStatusChange = async (invoice: Invoice) => {
-    setStatusChangeLoading(invoice._id);
-    try {
-      const newStatus = invoice.status === "Paid" ? "Unpaid" : "Paid";
-
-      await updateInvoice({
-        id: invoice._id,
-        data: { status: newStatus },
-      }).unwrap();
-    } catch (err: unknown) {
-      const serverError = err as ServerError;
-      toast.error(
-        serverError.data?.message ||
-          serverError.message ||
-          "Failed to update invoice status",
-      );
-    } finally {
-      setStatusChangeLoading(null);
-    }
-  };
-
   const handleOpenReminderModel = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId);
     setIsReminderModalOpen(true);
+  };
+
+  const handleOpenLogPayment = (invoice: Invoice) => {
+    setLogPaymentModal({ open: true, invoice });
   };
 
   const filteredInvoices = useMemo(() => {
@@ -184,6 +178,13 @@ const AllInvoices = () => {
         onClose={() => setIsReminderModalOpen(false)}
         invoiceId={selectedInvoiceId}
       />
+      <LogPaymentModal
+        isOpen={logPaymentModal.open}
+        onClose={() => setLogPaymentModal({ open: false, invoice: null })}
+        invoiceId={logPaymentModal.invoice?._id ?? null}
+        balanceDue={logPaymentModal.invoice?.balanceDue ?? 0}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -230,6 +231,7 @@ const AllInvoices = () => {
               >
                 <option value="All">All Statuses</option>
                 <option value="Paid">Paid</option>
+                <option value="Partially Paid">Partially Paid</option>
                 <option value="Pending">Pending</option>
                 <option value="Unpaid">Unpaid</option>
               </select>
@@ -273,9 +275,12 @@ const AllInvoices = () => {
                         {invoice.billTo.clientName}
                       </p>
                     </div>
-                    <span className={statusBadgeClasses(invoice.status)}>
-                      {invoice.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={statusBadgeClasses(invoice.status)}>
+                        {invoice.status}
+                      </span>
+                      {invoice.isOverdue && <OverdueBadge />}
+                    </div>
                   </div>
 
                   <div
@@ -287,6 +292,11 @@ const AllInvoices = () => {
                       <p className="text-sm font-semibold text-slate-900 tabular-nums">
                         ₦{addThousandsSeparator(invoice.total)}
                       </p>
+                      {invoice.status === "Partially Paid" && (
+                        <p className="text-xs text-blue-600 tabular-nums mt-0.5">
+                          Balance: ₦{addThousandsSeparator(invoice.balanceDue)}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-slate-500">Due Date</p>
@@ -297,15 +307,17 @@ const AllInvoices = () => {
                   </div>
 
                   <div className="flex items-center gap-2 pt-1">
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => handleStatusChange(invoice)}
-                      isLoading={statusChangeLoading === invoice._id}
-                    >
-                      {invoice.status === "Paid" ? "Mark Unpaid" : "Mark Paid"}
-                    </Button>
+                    {invoice.status !== "Paid" && (
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => handleOpenLogPayment(invoice)}
+                        icon={Banknote}
+                      >
+                        Log Payment
+                      </Button>
+                    )}
                     <Button
                       size="small"
                       variant="ghost"
@@ -396,6 +408,12 @@ const AllInvoices = () => {
                         className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer tabular-nums"
                       >
                         ₦{addThousandsSeparator(invoice.total)}
+                        {invoice.status === "Partially Paid" && (
+                          <div className="text-xs text-blue-600 mt-0.5">
+                            Balance: ₦
+                            {addThousandsSeparator(invoice.balanceDue)}
+                          </div>
+                        )}
                       </td>
 
                       <td
@@ -406,25 +424,28 @@ const AllInvoices = () => {
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={statusBadgeClasses(invoice.status)}>
-                          {invoice.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={statusBadgeClasses(invoice.status)}>
+                            {invoice.status}
+                          </span>
+                          {invoice.isOverdue && <OverdueBadge />}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div
                           className="flex items-center justify-end gap-2"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Button
-                            size="small"
-                            variant="secondary"
-                            onClick={() => handleStatusChange(invoice)}
-                            isLoading={statusChangeLoading === invoice._id}
-                          >
-                            {invoice.status === "Paid"
-                              ? "Mark Unpaid"
-                              : "Mark Paid"}
-                          </Button>
+                          {invoice.status !== "Paid" && (
+                            <Button
+                              size="small"
+                              variant="secondary"
+                              onClick={() => handleOpenLogPayment(invoice)}
+                              icon={Banknote}
+                            >
+                              Log Payment
+                            </Button>
+                          )}
                           <Tooltip text="Edit Invoice" position="top">
                             <Button
                               size="small"
