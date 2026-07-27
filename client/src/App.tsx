@@ -18,6 +18,7 @@ import PrivacyPolicyPage from "./pages/LandingPage/PrivacyPolicyPage";
 import TermsOfUsePage from "./pages/LandingPage/TermsOfUsePage";
 import AboutPage from "./pages/LandingPage/AboutPage";
 import ContactPage from "./pages/LandingPage/ContactPage";
+import AllCustomers from "./pages/Invoices/AllCustomers";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
     children: [
       { path: "dashboard", element: <Dashboard /> },
       { path: "invoices", element: <AllInvoices /> },
+      { path: "customers", element: <AllCustomers /> },
       { path: "invoices/new", element: <CreateInvoice /> },
       { path: "invoice/:id", element: <InvoiceDetail /> },
       { path: "invoice/customize", element: <CustomizeInvoice /> },

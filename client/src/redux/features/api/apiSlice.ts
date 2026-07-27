@@ -33,7 +33,7 @@ const baseQueryWithReauth: BaseQueryFn<
         credentials: "include",
       },
       api,
-      extraOptions
+      extraOptions,
     );
 
     if (refreshResult.data) {
@@ -48,7 +48,7 @@ const baseQueryWithReauth: BaseQueryFn<
         userLoggedIn({
           accessToken: refreshData.accessToken,
           user: refreshData.user,
-        })
+        }),
       );
 
       // Retry the original query with new token
@@ -63,12 +63,7 @@ const baseQueryWithReauth: BaseQueryFn<
 };
 
 export const apiSlice = createApi({
-  tagTypes: [
-    "User",
-    "Invoice",
-    "Ai",
-    "Analytics",
-  ],
+  tagTypes: ["User", "Invoice", "Customer", "Ai", "Analytics"],
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
   endpoints: (builder) => ({
@@ -86,7 +81,7 @@ export const apiSlice = createApi({
             userLoggedIn({
               accessToken: result.data.accessToken || "",
               user: result.data.user,
-            })
+            }),
           );
         } catch (error) {
           console.error("loadUser error:", error);
@@ -109,7 +104,7 @@ export const apiSlice = createApi({
             userLoggedIn({
               accessToken: result.data.accessToken,
               user: result.data.user,
-            })
+            }),
           );
         } catch {
           dispatch(userLoggedOut());

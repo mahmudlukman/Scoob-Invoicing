@@ -11,6 +11,7 @@ import config from "./config";
 import authRouter from "./routes/auth.route";
 import userRouter from "./routes/user.route";
 import invoiceRouter from "./routes/invoice.route";
+import customerRouter from "./routes/customer.route";
 import aiRouter from "./routes/ai.route";
 import analyticsRouter from "./routes/analytics.route";
 import { generateCSRFToken } from "./middleware/csrf";
@@ -67,6 +68,7 @@ app.use(
   authRouter,
   userRouter,
   invoiceRouter,
+  customerRouter,
   aiRouter,
   analyticsRouter,
 );

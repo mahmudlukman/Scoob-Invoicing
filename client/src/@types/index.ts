@@ -114,6 +114,7 @@ export interface InvoiceFormData {
   taxTotal?: number;
   total?: number;
   status?: string;
+  saveCustomer?: boolean;
 }
 
 export type InvoiceTemplateData = Invoice | InvoiceFormData;

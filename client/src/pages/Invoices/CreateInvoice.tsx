@@ -12,8 +12,10 @@ import {
 } from "../../redux/features/invoice/invoiceApi";
 import { useSelector } from "react-redux";
 import type { InvoiceFormData, RootState, ServerError } from "../../@types";
-import SelectField from "../../components/ui/SelectedField"; // Verify if filename matches your directory
+import SelectField from "../../components/ui/SelectedField";
 import { addThousandsSeparator } from "../../utils/helper";
+import { useGetCustomersQuery } from "../../redux/features/customer/customerApi";
+import type { Customer } from "../../redux/features/customer/customerApi";
 
 interface CreateInvoiceProps {
   existingInvoice?: InvoiceFormData;
@@ -24,6 +26,11 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { data: customersData } = useGetCustomersQuery();
+  const customers = customersData?.customers || [];
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [saveCustomer, setSaveCustomer] = useState(false);
 
   const { data: invoicesData } = useGetAllInvoicesQuery();
   const [createInvoice, { isLoading: isCreating }] = useCreateInvoiceMutation();
@@ -128,6 +135,10 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     const { name, value } = e.target;
 
     if (section) {
+      // If editing billTo after a customer was selected, treat it as a divergence
+      if (section === "billTo" && selectedCustomerId) {
+        setSelectedCustomerId("");
+      }
       setFormData((prev) => ({
         ...prev,
         [section]: { ...prev[section], [name]: value },
@@ -135,9 +146,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     } else if (index !== undefined) {
       const newItems = [...formData.items];
 
-      // Allow empty inputs temporarily so users can backspace and type values smoothly,
-      // but clamp any parsed number to a non-negative value (quantity/price/tax should
-      // never go below 0). Tax is additionally capped at 100%.
       let updatedValue: string | number = value;
       if (name !== "name") {
         if (value === "") {
@@ -184,6 +192,34 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handleCustomerSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const customerId = e.target.value;
+    setSelectedCustomerId(customerId);
+    setSaveCustomer(false); // reset — picking an existing customer means nothing new to save
+
+    if (!customerId) {
+      // "+ New customer" selected — clear the Bill To fields
+      setFormData((prev) => ({
+        ...prev,
+        billTo: { clientName: "", email: "", address: "", phone: "" },
+      }));
+      return;
+    }
+
+    const customer = customers.find((c: Customer) => c._id === customerId);
+    if (customer) {
+      setFormData((prev) => ({
+        ...prev,
+        billTo: {
+          clientName: customer.clientName,
+          email: customer.email || "",
+          address: customer.address || "",
+          phone: customer.phone || "",
+        },
+      }));
+    }
+  };
+
   // Perform accurate calculations, ensuring fallbacks handle empty string states during typing
   const { subtotal, taxTotal, total } = useMemo(() => {
     let subtotal = 0,
@@ -223,6 +259,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
       subtotal,
       taxTotal,
       total,
+      saveCustomer: !selectedCustomerId && saveCustomer,
     };
 
     if (onSave) {
@@ -250,6 +287,9 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     const decimalPart = val.toFixed(2).split(".")[1];
     return `${formattedInteger}.${decimalPart}`;
   };
+
+  const canSaveCustomer =
+    !selectedCustomerId && !!formData.billTo.clientName?.trim();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 pb-[10vh]">
@@ -334,6 +374,28 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         </div>
         <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200 space-y-4">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To</h3>
+
+          {/* Customer dropdown */}
+          {customers.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Select existing customer
+              </label>
+              <select
+                value={selectedCustomerId}
+                onChange={handleCustomerSelect}
+                className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">+ New customer</option>
+                {customers.map((customer: Customer) => (
+                  <option key={customer._id} value={customer._id}>
+                    {customer.clientName}
+                    {customer.email ? ` (${customer.email})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <InputField
             label="Client Name"
             name="clientName"
@@ -362,6 +424,28 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             value={formData.billTo.phone}
             onChange={(e) => handleInputChange(e, "billTo")}
           />
+          {/* Save customer checkbox — hidden once an existing customer is selected,
+              disabled until a client name has been entered */}
+          {!selectedCustomerId && (
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="saveCustomer"
+                checked={saveCustomer}
+                disabled={!canSaveCustomer}
+                onChange={(e) => setSaveCustomer(e.target.checked)}
+                className="rounded border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <label
+                htmlFor="saveCustomer"
+                className={`text-sm ${
+                  canSaveCustomer ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                Save this customer for future invoices
+              </label>
+            </div>
+          )}
         </div>
       </div>
 

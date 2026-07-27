@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Mail,
   Plus,
+  HandPlatter,
   Sparkles,
   User,
   UserRoundCog,
@@ -124,6 +125,12 @@ export const NAVIGATION_MENU = [
     id: "invoices/new",
     name: "Create Invoice",
     icon: Plus,
+    visible: ["user", "admin"] as const,
+  },
+  {
+    id: "Customers",
+    name: "All Customers",
+    icon: HandPlatter,
     visible: ["user", "admin"] as const,
   },
   {

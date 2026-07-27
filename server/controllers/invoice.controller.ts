@@ -4,6 +4,8 @@ import User from "../models/User";
 import ErrorHandler from "../utils/errorHandler";
 import Invoice, { IItem } from "../models/Invoice";
 
+import Customer from "../models/Customer";
+
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
 // @access      Private
@@ -19,6 +21,7 @@ export const createInvoice = catchAsyncError(
       items,
       notes,
       paymentTerms,
+      saveCustomer, // new: boolean from the checkbox
     } = req.body;
 
     //  subtotal calculation
@@ -48,6 +51,38 @@ export const createInvoice = catchAsyncError(
     });
 
     await invoice.save();
+
+    // Only save/update the customer record if the user opted in
+    if (saveCustomer && billTo?.clientName) {
+      try {
+        if (billTo.email) {
+          // Upsert by email so re-checking the box on a repeat client updates their info
+          await Customer.findOneAndUpdate(
+            { user: user?._id, email: billTo.email },
+            {
+              user: user?._id,
+              clientName: billTo.clientName,
+              email: billTo.email,
+              address: billTo.address,
+              phone: billTo.phone,
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true },
+          );
+        } else {
+          // No email to key off of — just create a new customer record
+          await Customer.create({
+            user: user?._id,
+            clientName: billTo.clientName,
+            address: billTo.address,
+            phone: billTo.phone,
+          });
+        }
+      } catch (err) {
+        // Don't fail invoice creation just because customer save had an issue
+        console.error("Failed to save customer:", err);
+      }
+    }
+
     res.status(201).json(invoice);
   },
 );
