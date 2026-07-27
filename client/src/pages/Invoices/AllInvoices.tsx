@@ -11,7 +11,6 @@ import {
   Sparkles,
   Trash2,
   Copy,
-  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import Button from "../../components/ui/Button";
@@ -19,11 +18,13 @@ import {
   useGetAllInvoicesQuery,
   useDeleteInvoiceMutation,
   useDuplicateInvoiceMutation,
+  useAddPaymentMutation,
 } from "../../redux/features/invoice/invoiceApi";
 import type { Invoice, ServerError } from "../../@types";
 import ReminderModel from "../../components/invoices/ReminderModel";
 import CreateWithAIModel from "../../components/invoices/CreateWithAIModel";
 import LogPaymentModal from "../../components/invoices/LogPaymentModal";
+import PaymentActionDropdown from "../../components/invoices/PaymentActionDropdown";
 import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
@@ -39,7 +40,6 @@ const statusBadgeClasses = (status: Invoice["status"]) =>
           : "bg-red-100 text-red-800"
   }`;
 
-// Small standalone badge for overdue, rendered alongside the status badge
 const OverdueBadge = () => (
   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
     Overdue
@@ -52,7 +52,12 @@ const AllInvoices = () => {
   const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
   const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
   const [duplicateInvoice] = useDuplicateInvoiceMutation();
+  const [addPayment] = useAddPaymentMutation();
+
   const [duplicateLoading, setDuplicateLoading] = useState<string | null>(null);
+  const [fullPaymentLoadingId, setFullPaymentLoadingId] = useState<
+    string | null
+  >(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -118,7 +123,30 @@ const AllInvoices = () => {
     setIsReminderModalOpen(true);
   };
 
-  const handleOpenLogPayment = (invoice: Invoice) => {
+  const handleFullPayment = async (invoice: Invoice) => {
+    setFullPaymentLoadingId(invoice._id);
+    try {
+      await addPayment({
+        invoiceId: invoice._id,
+        data: {
+          amount: invoice.balanceDue,
+          method: "Full Payment",
+        },
+      }).unwrap();
+      toast.success("Invoice marked as fully paid");
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError.data?.message ||
+          serverError.message ||
+          "Failed to record payment",
+      );
+    } finally {
+      setFullPaymentLoadingId(null);
+    }
+  };
+
+  const handleOpenPartialPayment = (invoice: Invoice) => {
     setLogPaymentModal({ open: true, invoice });
   };
 
@@ -179,6 +207,7 @@ const AllInvoices = () => {
         invoiceId={selectedInvoiceId}
       />
       <LogPaymentModal
+        key={logPaymentModal.invoice?._id ?? "none"}
         isOpen={logPaymentModal.open}
         onClose={() => setLogPaymentModal({ open: false, invoice: null })}
         invoiceId={logPaymentModal.invoice?._id ?? null}
@@ -306,18 +335,16 @@ const AllInvoices = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1">
-                    {invoice.status !== "Paid" && (
-                      <Button
-                        size="small"
-                        variant="secondary"
-                        className="flex-1"
-                        onClick={() => handleOpenLogPayment(invoice)}
-                        icon={Banknote}
-                      >
-                        Log Payment
-                      </Button>
-                    )}
+                  <div
+                    className="flex items-center gap-2 pt-1 flex-wrap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <PaymentActionDropdown
+                      invoice={invoice}
+                      isProcessing={fullPaymentLoadingId === invoice._id}
+                      onFullPayment={() => handleFullPayment(invoice)}
+                      onPartialPayment={() => handleOpenPartialPayment(invoice)}
+                    />
                     <Button
                       size="small"
                       variant="ghost"
@@ -436,16 +463,14 @@ const AllInvoices = () => {
                           className="flex items-center justify-end gap-2"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {invoice.status !== "Paid" && (
-                            <Button
-                              size="small"
-                              variant="secondary"
-                              onClick={() => handleOpenLogPayment(invoice)}
-                              icon={Banknote}
-                            >
-                              Log Payment
-                            </Button>
-                          )}
+                          <PaymentActionDropdown
+                            invoice={invoice}
+                            isProcessing={fullPaymentLoadingId === invoice._id}
+                            onFullPayment={() => handleFullPayment(invoice)}
+                            onPartialPayment={() =>
+                              handleOpenPartialPayment(invoice)
+                            }
+                          />
                           <Tooltip text="Edit Invoice" position="top">
                             <Button
                               size="small"

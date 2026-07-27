@@ -57,6 +57,24 @@ const ItemSchema = new mongoose_1.Schema({
         required: true,
     },
 });
+// Payment schema definition
+const PaymentSchema = new mongoose_1.Schema({
+    amount: {
+        type: Number,
+        required: true,
+        min: 0.01,
+    },
+    date: {
+        type: Date,
+        default: Date.now,
+    },
+    method: {
+        type: String,
+    },
+    note: {
+        type: String,
+    },
+});
 // Invoice schema definition
 const InvoiceSchema = new mongoose_1.Schema({
     user: {
@@ -97,12 +115,16 @@ const InvoiceSchema = new mongoose_1.Schema({
     },
     status: {
         type: String,
-        enum: ["Paid", "Unpaid", "Pending"],
+        enum: ["Paid", "Unpaid", "Pending", "Partially Paid"],
         default: "Unpaid",
     },
     subtotal: Number,
     taxTotal: Number,
     total: Number,
+    payments: {
+        type: [PaymentSchema],
+        default: [],
+    },
 }, { timestamps: true });
 // Export the model
 const Invoice = mongoose_1.default.model("Invoice", InvoiceSchema);

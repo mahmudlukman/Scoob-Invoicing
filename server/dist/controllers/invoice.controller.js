@@ -3,17 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
+exports.deletePayment = exports.addPayment = exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
 const catchAsyncErrors_1 = require("../middleware/catchAsyncErrors");
 const User_1 = __importDefault(require("../models/User"));
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
 const Invoice_1 = __importDefault(require("../models/Invoice"));
+const Customer_1 = __importDefault(require("../models/Customer"));
+const invoiceHelper_1 = require("../utils/invoiceHelper");
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
 // @access      Private
 exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const user = req.user;
-    const { invoiceNumber, invoiceDate, dueDate, billFrom, billTo, items, notes, paymentTerms, } = req.body;
+    const { invoiceNumber, invoiceDate, dueDate, billFrom, billTo, items, notes, paymentTerms, saveCustomer, // new: boolean from the checkbox
+     } = req.body;
     //  subtotal calculation
     let subtotal = 0;
     let taxTotal = 0;
@@ -38,6 +41,34 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         total,
     });
     await invoice.save();
+    // Only save/update the customer record if the user opted in
+    if (saveCustomer && billTo?.clientName) {
+        try {
+            if (billTo.email) {
+                // Upsert by email so re-checking the box on a repeat client updates their info
+                await Customer_1.default.findOneAndUpdate({ user: user?._id, email: billTo.email }, {
+                    user: user?._id,
+                    clientName: billTo.clientName,
+                    email: billTo.email,
+                    address: billTo.address,
+                    phone: billTo.phone,
+                }, { upsert: true, new: true, setDefaultsOnInsert: true });
+            }
+            else {
+                // No email to key off of — just create a new customer record
+                await Customer_1.default.create({
+                    user: user?._id,
+                    clientName: billTo.clientName,
+                    address: billTo.address,
+                    phone: billTo.phone,
+                });
+            }
+        }
+        catch (err) {
+            // Don't fail invoice creation just because customer save had an issue
+            console.error("Failed to save customer:", err);
+        }
+    }
     res.status(201).json(invoice);
 });
 // @desc        Get all invoices of logged-in user
@@ -46,9 +77,13 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
 exports.getInvoices = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const user = await User_1.default.findById(req.user?._id);
     const invoices = await Invoice_1.default.find({ user }).populate("user", "name email");
+    const invoicesWithComputed = invoices.map((invoice) => {
+        const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
+        return { ...invoice.toObject(), ...computed };
+    });
     res.status(200).json({
         success: true,
-        invoices,
+        invoices: invoicesWithComputed,
     });
 });
 // @desc        Get single invoices by ID
@@ -61,9 +96,10 @@ exports.getInvoiceById = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res
     if (invoice.user._id.toString() !== req.user?._id.toString()) {
         return next(new errorHandler_1.default("Not authorized to access this invoice", 403));
     }
+    const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
     res.status(200).json({
         success: true,
-        invoice,
+        invoice: { ...invoice.toObject(), ...computed },
     });
 });
 // @desc        Update invoice
@@ -71,6 +107,12 @@ exports.getInvoiceById = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res
 // @access      Private
 exports.updateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const { invoiceNumber, invoiceDate, dueDate, billFrom, billTo, items, notes, paymentTerms, status, } = req.body;
+    const invoice = await Invoice_1.default.findById(req.params.id);
+    if (!invoice)
+        return res.status(404).json({ message: "Invoice not found" });
+    if (invoice.user.toString() !== req.user?._id.toString()) {
+        return next(new errorHandler_1.default("Not authorized to update this invoice", 403));
+    }
     // Only recalculate totals if items were actually sent
     let totalsUpdate = {};
     if (items && items.length > 0) {
@@ -84,8 +126,29 @@ exports.updateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         const total = subtotal + taxTotal;
         totalsUpdate = { items, subtotal, taxTotal, total };
     }
-    // Only include fields that were actually provided in the request
-    const updateData = {
+    // Handle manual status changes from the quick-toggle button (no `items` sent alongside).
+    // This keeps `payments` as the source of truth so amountPaid/status never drift apart.
+    if (status !== undefined && !items) {
+        const currentAmountPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+        const total = invoice.total || 0;
+        if (status === "Paid" && currentAmountPaid < total) {
+            // Log the remaining balance as a manual payment so the payment trail stays accurate
+            invoice.payments.push({
+                amount: total - currentAmountPaid,
+                date: new Date(),
+                method: "Manual",
+                note: "Marked as paid manually",
+            });
+        }
+        else if (status === "Unpaid") {
+            // Reversing to Unpaid only makes sense if there's no real payment history yet.
+            // If payments exist, block this — the user should remove individual payments instead.
+            if (invoice.payments.length > 0) {
+                return next(new errorHandler_1.default("This invoice has logged payments. Remove individual payments instead of marking it Unpaid directly.", 400));
+            }
+        }
+    }
+    Object.assign(invoice, {
         ...(invoiceNumber !== undefined && { invoiceNumber }),
         ...(invoiceDate !== undefined && { invoiceDate }),
         ...(dueDate !== undefined && { dueDate }),
@@ -93,15 +156,20 @@ exports.updateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         ...(billTo !== undefined && { billTo }),
         ...(notes !== undefined && { notes }),
         ...(paymentTerms !== undefined && { paymentTerms }),
-        ...(status !== undefined && { status }),
         ...totalsUpdate,
-    };
-    const updatedInvoice = await Invoice_1.default.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    if (!updatedInvoice)
-        return res.status(404).json({ message: "Invoice not found" });
+    });
+    // Recompute status from actual payment total rather than trusting the raw `status` field,
+    // unless it's explicitly "Pending" which is a manual/non-payment-driven state.
+    const amountPaidAfter = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+    invoice.status =
+        status === "Pending"
+            ? "Pending"
+            : (0, invoiceHelper_1.computeStatusFromPayments)(invoice.total || 0, amountPaidAfter, invoice.status);
+    await invoice.save();
+    const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
     res.status(200).json({
         success: true,
-        updatedInvoice,
+        updatedInvoice: { ...invoice.toObject(), ...computed },
     });
 });
 // @desc        Duplicate an invoice
@@ -223,4 +291,59 @@ exports.deleteInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
     if (!invoice)
         return res.status(404).json({ message: "Invoice not found" });
     res.json({ message: "Invoice deleted successfully" });
+});
+// @desc        Add a payment to an invoice
+// @route       POST /api/v1/invoices/:id/payments
+// @access      Private
+exports.addPayment = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const { amount, date, method, note } = req.body;
+    if (!amount || amount <= 0) {
+        return next(new errorHandler_1.default("Payment amount must be greater than 0", 400));
+    }
+    const invoice = await Invoice_1.default.findById(req.params.id);
+    if (!invoice)
+        return next(new errorHandler_1.default("Invoice not found", 404));
+    if (invoice.user.toString() !== req.user?._id.toString()) {
+        return next(new errorHandler_1.default("Not authorized to update this invoice", 403));
+    }
+    invoice.payments.push({
+        amount,
+        date: date ? new Date(date) : new Date(),
+        method,
+        note,
+    });
+    const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+    invoice.status = (0, invoiceHelper_1.computeStatusFromPayments)(invoice.total || 0, amountPaid, invoice.status);
+    await invoice.save();
+    const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
+    res.status(200).json({
+        success: true,
+        invoice,
+        ...computed,
+    });
+});
+// @desc        Remove a payment from an invoice (e.g. logged in error)
+// @route       DELETE /api/v1/invoices/:id/payments/:paymentId
+// @access      Private
+exports.deletePayment = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const invoice = await Invoice_1.default.findById(req.params.id);
+    if (!invoice)
+        return next(new errorHandler_1.default("Invoice not found", 404));
+    if (invoice.user.toString() !== req.user?._id.toString()) {
+        return next(new errorHandler_1.default("Not authorized to update this invoice", 403));
+    }
+    const paymentExists = invoice.payments.some((p) => p._id?.toString() === req.params.paymentId);
+    if (!paymentExists) {
+        return next(new errorHandler_1.default("Payment not found", 404));
+    }
+    invoice.payments = invoice.payments.filter((p) => p._id?.toString() !== req.params.paymentId);
+    const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+    invoice.status = (0, invoiceHelper_1.computeStatusFromPayments)(invoice.total || 0, amountPaid, invoice.status);
+    await invoice.save();
+    const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
+    res.status(200).json({
+        success: true,
+        invoice,
+        ...computed,
+    });
 });

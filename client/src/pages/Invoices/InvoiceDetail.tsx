@@ -4,7 +4,6 @@ import {
   Mail,
   Paintbrush,
   Printer,
-  Banknote,
   Trash2,
   Loader2,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import {
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
   useDeletePaymentMutation,
+  useAddPaymentMutation,
 } from "../../redux/features/invoice/invoiceApi";
 import type {
   InvoiceFormData,
@@ -32,6 +32,7 @@ import Loading from "../../components/ui/Loading";
 import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 import { addThousandsSeparator } from "../../utils/helper";
+import PaymentActionDropdown from "../../components/invoices/PaymentActionDropdown";
 
 const INVOICE_WIDTH = 680;
 
@@ -47,6 +48,8 @@ const InvoiceDetail = () => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
+  const [addPayment] = useAddPaymentMutation();
+  const [isFullPaymentLoading, setIsFullPaymentLoading] = useState(false);
 
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -129,6 +132,30 @@ const InvoiceDetail = () => {
     }
   };
 
+  const handleFullPayment = async () => {
+    if (!id || !invoice) return;
+    setIsFullPaymentLoading(true);
+    try {
+      await addPayment({
+        invoiceId: id,
+        data: {
+          amount: invoice.balanceDue,
+          method: "Full Payment",
+        },
+      }).unwrap();
+      toast.success("Invoice marked as fully paid");
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to record payment",
+      );
+    } finally {
+      setIsFullPaymentLoading(false);
+    }
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: invoiceRef,
     documentTitle: `Invoice-${invoice?.invoiceNumber}`,
@@ -180,6 +207,7 @@ const InvoiceDetail = () => {
         invoiceId={id!}
       />
       <LogPaymentModal
+        key={id}
         isOpen={isLogPaymentOpen}
         onClose={() => setIsLogPaymentOpen(false)}
         invoiceId={id ?? null}
@@ -202,13 +230,12 @@ const InvoiceDetail = () => {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {invoice.status !== "Paid" && (
-            <Button
-              variant="secondary"
-              onClick={() => setIsLogPaymentOpen(true)}
-              icon={Banknote}
-            >
-              Log Payment
-            </Button>
+            <PaymentActionDropdown
+              invoice={invoice}
+              isProcessing={isFullPaymentLoading}
+              onFullPayment={handleFullPayment}
+              onPartialPayment={() => setIsLogPaymentOpen(true)}
+            />
           )}
           {invoice.status !== "Paid" && (
             <Button

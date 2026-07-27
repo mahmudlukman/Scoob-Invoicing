@@ -16,6 +16,7 @@ const config_1 = __importDefault(require("./config"));
 const auth_route_1 = __importDefault(require("./routes/auth.route"));
 const user_route_1 = __importDefault(require("./routes/user.route"));
 const invoice_route_1 = __importDefault(require("./routes/invoice.route"));
+const customer_route_1 = __importDefault(require("./routes/customer.route"));
 const ai_route_1 = __importDefault(require("./routes/ai.route"));
 const analytics_route_1 = __importDefault(require("./routes/analytics.route"));
 const csrf_1 = require("./middleware/csrf");
@@ -53,7 +54,7 @@ exports.app.use(csrf_1.generateCSRFToken);
 // Apply rate limiting middleware to prevent excessive requests and enhance security
 exports.app.use(rateLimiter_1.limiter);
 // routes
-exports.app.use("/api/v1", auth_route_1.default, user_route_1.default, invoice_route_1.default, ai_route_1.default, analytics_route_1.default);
+exports.app.use("/api/v1", auth_route_1.default, user_route_1.default, invoice_route_1.default, customer_route_1.default, ai_route_1.default, analytics_route_1.default);
 // testing API
 exports.app.get("/test", (req, res, next) => {
     res.status(200).json({ success: true, message: "API is working" });

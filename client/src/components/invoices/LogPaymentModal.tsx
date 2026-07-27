@@ -3,9 +3,9 @@ import Modal from "../ui/Modal";
 import Button from "../ui/Button";
 import InputField from "../ui/InputField";
 import SelectField from "../ui/SelectedField";
+import { useAddPaymentMutation } from "../../redux/features/invoice/invoiceApi";
 import type { ServerError } from "../../@types";
 import toast from "react-hot-toast";
-import { useAddPaymentMutation } from "../../redux/features/invoice/invoiceApi";
 
 interface LogPaymentModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ const LogPaymentModal = ({
 }: LogPaymentModalProps) => {
   const [addPayment, { isLoading }] = useAddPaymentMutation();
 
-  const [amount, setAmount] = useState(String(balanceDue || ""));
+  const [amount, setAmount] = useState(balanceDue ? String(balanceDue) : "");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [method, setMethod] = useState("Bank Transfer");
   const [note, setNote] = useState("");
@@ -43,8 +43,6 @@ const LogPaymentModal = ({
       }).unwrap();
       toast.success("Payment logged successfully");
       onClose();
-      setAmount("");
-      setNote("");
     } catch (err: unknown) {
       const serverError = err as ServerError;
       toast.error(
