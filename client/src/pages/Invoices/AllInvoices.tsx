@@ -29,22 +29,66 @@ import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
 
-const statusBadgeClasses = (status: Invoice["status"]) =>
-  `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-    status === "Paid"
-      ? "bg-emerald-100 text-emerald-800"
-      : status === "Partially Paid"
-        ? "bg-blue-100 text-blue-800"
-        : status === "Pending"
-          ? "bg-amber-100 text-amber-800"
-          : "bg-red-100 text-red-800"
-  }`;
+// Single source of truth for what badge an invoice should show.
+// Overdue takes priority over a plain "Unpaid"/"Partially Paid" label,
+// but "Paid" always wins outright — a fully settled invoice is never overdue.
+const getStatusDisplay = (invoice: Invoice) => {
+  if (invoice.status === "Paid") {
+    return { label: "Paid", className: "bg-emerald-100 text-emerald-800" };
+  }
+  if (invoice.isOverdue) {
+    return { label: "Overdue", className: "bg-red-100 text-red-800" };
+  }
+  if (invoice.status === "Partially Paid") {
+    return { label: "Partially Paid", className: "bg-blue-100 text-blue-800" };
+  }
+  if (invoice.status === "Pending") {
+    return { label: "Pending", className: "bg-amber-100 text-amber-800" };
+  }
+  return { label: "Unpaid", className: "bg-red-100 text-red-800" };
+};
 
-const OverdueBadge = () => (
-  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-    Overdue
-  </span>
-);
+const StatusBadge = ({ invoice }: { invoice: Invoice }) => {
+  const { label, className } = getStatusDisplay(invoice);
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}
+    >
+      {label}
+    </span>
+  );
+};
+
+// Compact amount + payment-progress display, replacing the old
+// "Total / Balance:" stacked text with a small progress bar.
+const AmountCell = ({ invoice }: { invoice: Invoice }) => {
+  const paidPercent =
+    invoice.total > 0
+      ? Math.min(100, (invoice.amountPaid / invoice.total) * 100)
+      : 0;
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-slate-900 tabular-nums">
+        ₦{addThousandsSeparator(invoice.total)}
+      </p>
+      {invoice.status === "Partially Paid" && (
+        <div className="mt-1.5 w-28">
+          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all"
+              style={{ width: `${paidPercent}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
+            ₦{addThousandsSeparator(invoice.amountPaid)} of ₦
+            {addThousandsSeparator(invoice.total)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AllInvoices = () => {
   const navigate = useNavigate();
@@ -304,29 +348,14 @@ const AllInvoices = () => {
                         {invoice.billTo.clientName}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className={statusBadgeClasses(invoice.status)}>
-                        {invoice.status}
-                      </span>
-                      {invoice.isOverdue && <OverdueBadge />}
-                    </div>
+                    <StatusBadge invoice={invoice} />
                   </div>
 
                   <div
                     className="flex items-center justify-between cursor-pointer"
                     onClick={() => navigate(`/invoice/${invoice._id}`)}
                   >
-                    <div>
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-sm font-semibold text-slate-900 tabular-nums">
-                        ₦{addThousandsSeparator(invoice.total)}
-                      </p>
-                      {invoice.status === "Partially Paid" && (
-                        <p className="text-xs text-blue-600 tabular-nums mt-0.5">
-                          Balance: ₦{addThousandsSeparator(invoice.balanceDue)}
-                        </p>
-                      )}
-                    </div>
+                    <AmountCell invoice={invoice} />
                     <div className="text-right">
                       <p className="text-xs text-slate-500">Due Date</p>
                       <p className="text-sm text-slate-600 tabular-nums">
@@ -432,15 +461,9 @@ const AllInvoices = () => {
 
                       <td
                         onClick={() => navigate(`/invoice/${invoice._id}`)}
-                        className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 cursor-pointer tabular-nums"
+                        className="px-6 py-4 whitespace-nowrap cursor-pointer"
                       >
-                        ₦{addThousandsSeparator(invoice.total)}
-                        {invoice.status === "Partially Paid" && (
-                          <div className="text-xs text-blue-600 mt-0.5">
-                            Balance: ₦
-                            {addThousandsSeparator(invoice.balanceDue)}
-                          </div>
-                        )}
+                        <AmountCell invoice={invoice} />
                       </td>
 
                       <td
@@ -451,12 +474,7 @@ const AllInvoices = () => {
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className={statusBadgeClasses(invoice.status)}>
-                            {invoice.status}
-                          </span>
-                          {invoice.isOverdue && <OverdueBadge />}
-                        </div>
+                        <StatusBadge invoice={invoice} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div

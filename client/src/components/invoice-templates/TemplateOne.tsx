@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { addThousandsSeparator } from "../../utils/helper";
+import { getPaymentInfo, getStatusColor } from "../../utils/invoiceHelpers";
 import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
 
 const DEFAULT_THEME = ["#F0FDF4", "#16A34A", "#DCFCE7", "#15803D", "#1E293B"];
@@ -31,12 +32,9 @@ const TemplateOne = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerWidth]);
 
-  const statusColor =
-    invoice.status === "Paid"
-      ? "#16A34A"
-      : invoice.status === "Pending"
-        ? "#D97706"
-        : "#DC2626";
+  const statusColor = getStatusColor(invoice.status);
+  const { amountPaid, balanceDue } = getPaymentInfo(invoice);
+  const isPartiallyPaid = invoice.status === "Partially Paid";
 
   return (
     <div
@@ -279,6 +277,27 @@ const TemplateOne = ({
                   ₦{addThousandsSeparator(invoice.total ?? 0)}
                 </span>
               </div>
+
+              {isPartiallyPaid && (
+                <div
+                  className="pt-2 mt-2 space-y-1.5"
+                  style={{ borderTop: `1px dashed ${themeColors[1]}80` }}
+                >
+                  <div
+                    className="flex justify-between text-xs font-medium text-slate-500"
+                  >
+                    <span>Amount Paid</span>
+                    <span>₦{addThousandsSeparator(amountPaid)}</span>
+                  </div>
+                  <div
+                    className="flex justify-between text-xs font-bold"
+                    style={{ color: themeColors[4] }}
+                  >
+                    <span>Balance Due</span>
+                    <span>₦{addThousandsSeparator(balanceDue)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -301,23 +320,24 @@ const TemplateOne = ({
 
       {/* Bottom accent strip */}
       <div className="h-1 w-full" style={{ backgroundColor: themeColors[2] }} />
-      {/* PAID watermark */}
-      {invoice.status === "Paid" && (
+      {/* PAID / PARTIALLY PAID watermark */}
+      {(invoice.status === "Paid" || isPartiallyPaid) && (
         <div
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
           style={{ zIndex: 10 }}
         >
           <span
-            className="text-[160px] font-black uppercase tracking-widest select-none"
+            className="font-black uppercase tracking-widest select-none"
             style={{
               color: themeColors[1],
               opacity: 0.08,
               transform: "rotate(-35deg)",
               lineHeight: 1,
               userSelect: "none",
+              fontSize: isPartiallyPaid ? "90px" : "160px",
             }}
           >
-            PAID
+            {invoice.status === "Paid" ? "PAID" : "PARTIALLY PAID"}
           </span>
         </div>
       )}

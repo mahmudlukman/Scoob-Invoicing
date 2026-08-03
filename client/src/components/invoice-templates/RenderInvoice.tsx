@@ -21,8 +21,6 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
   colorPalette,
   containerWidth,
 }) => {
-  // Convert colorPalette object to array format expected by the templates
-  // [bg, primary, accent, secondary, text]
   const colorPaletteArray: string[] = [
     colorPalette.background,
     colorPalette.primary,
