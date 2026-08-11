@@ -58,7 +58,7 @@ const CreateWithAIModel = ({ isOpen, onClose }: CreateWithAIModelProps) => {
           label="Paste Invoice Text Here"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="e.g., 'Invoice for ClientCorp: 2 hours of design work at $150/hr and one logo for $800'"
+          placeholder="e.g., 'Invoice for ClientCorp: 2 hours of design work at ₦1500/hr and one logo for ₦5000'"
           rows={8}
         />
 

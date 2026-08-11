@@ -163,10 +163,10 @@ const DashboardLayout = ({
         {/*  Logout  */}
         <div className="absolute bottom-4 left-4 right-4">
           <button
-            className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+            className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-red-600 hover:bg-red-100 hover:text-red-900 transition-all duration-200"
             onClick={handleLogout}
           >
-            <LogOut className="h-5 w-5 flex-shrink-0 text-gray-500" />
+            <LogOut className="h-5 w-5 flex-shrink-0 text-red-500" />
             {!sidebarCollapsed && <span className="ml-3">Logout</span>}
           </button>
         </div>

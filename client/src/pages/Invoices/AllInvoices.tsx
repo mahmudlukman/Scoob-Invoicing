@@ -29,9 +29,6 @@ import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
 
-// Single source of truth for what badge an invoice should show.
-// Overdue takes priority over a plain "Unpaid"/"Partially Paid" label,
-// but "Paid" always wins outright — a fully settled invoice is never overdue.
 const getStatusDisplay = (invoice: Invoice) => {
   if (invoice.status === "Paid") {
     return { label: "Paid", className: "bg-emerald-100 text-emerald-800" };
@@ -59,8 +56,6 @@ const StatusBadge = ({ invoice }: { invoice: Invoice }) => {
   );
 };
 
-// Compact amount + payment-progress display, replacing the old
-// "Total / Balance:" stacked text with a small progress bar.
 const AmountCell = ({ invoice }: { invoice: Invoice }) => {
   const paidPercent =
     invoice.total > 0

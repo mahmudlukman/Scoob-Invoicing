@@ -37,7 +37,7 @@ export const parseInvoiceFromText = catchAsyncError(
         ${text}
         ---- TEXT END ----
         
-        Extract the data and provide only the JSON object.`;
+        Extract the data and provide only the JSON object. Make the currency in Nigerian Naira (₦).`;
 
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -88,7 +88,7 @@ export const generateReminderEmail = catchAsyncError(
         - Amount Due: ${(invoice.total ?? 0).toFixed(2)}
         - Due Date: ${dueDateStr}
         
-        The tone should be friendly but clear. Keep it concise. Start the email with "Subject: ".`;
+        The tone should be friendly but clear. Keep it concise. Make the currency in Nigerian Naira (₦). Start the email with "Subject: ".`;
 
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
