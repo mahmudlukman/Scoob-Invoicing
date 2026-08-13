@@ -17,3 +17,6 @@ export const getStatusColor = (status?: string) =>
       : status === "Pending"
         ? "#D97706"
         : "#DC2626";
+
+export const getCurrencySymbol = (invoice: InvoiceTemplateData) =>
+  invoice.currency?.symbol || "₦";

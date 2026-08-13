@@ -5,6 +5,8 @@ import ErrorHandler from "../utils/errorHandler";
 import cloudinary from "cloudinary";
 import { FilterQuery } from "mongoose";
 import { getCurrencyByCode } from "../utils/currencies";
+import Invoice from "../models/Invoice";
+import Customer from "../models/Customer";
 
 // @desc       get logged in user
 // @route      PUT /api/v1/me
@@ -302,6 +304,112 @@ export const deleteUser = catchAsyncError(
     res.status(201).json({
       success: true,
       message: "User deleted successfully!",
+    });
+  },
+);
+
+// @desc        Delete the logged-in user's account and all associated data
+// @route       DELETE /api/v1/delete-account
+// @access      Private
+export const deleteAccount = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { password } = req.body;
+
+    if (!password) {
+      return next(
+        new ErrorHandler("Password is required to delete your account", 400),
+      );
+    }
+
+    const user = await User.findById(req.user?._id).select("+password");
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return next(new ErrorHandler("Incorrect password", 401));
+    }
+
+    const userId = user._id;
+
+    // Cascade delete everything tied to this user so no orphaned data remains
+    await Promise.all([
+      Invoice.deleteMany({ user: userId }),
+      Customer.deleteMany({ user: userId }),
+    ]);
+
+    await user.deleteOne();
+
+    // Clear the auth cookie so the now-deleted user's session token stops working
+    res.cookie("token", "", {
+      expires: new Date(0),
+      httpOnly: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Your account and all associated data have been deleted",
+    });
+  },
+);
+
+// @desc        Deactivate the logged-in user's account (reversible)
+// @route       PATCH /api/v1/deactivate-account
+// @access      Private
+export const deactivateAccount = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { password } = req.body;
+
+    if (!password) {
+      return next(
+        new ErrorHandler(
+          "Password is required to deactivate your account",
+          400,
+        ),
+      );
+    }
+
+    const user = await User.findById(req.user?._id).select("+password");
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return next(new ErrorHandler("Incorrect password", 401));
+    }
+
+    user.isActive = false;
+    await user.save();
+
+    // Log the user out immediately — a deactivated account shouldn't stay signed in
+    res.cookie("token", "", {
+      expires: new Date(0),
+      httpOnly: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Your account has been deactivated",
+    });
+  },
+);
+
+// @desc        Reactivate a deactivated account (called right after login if isActive is false)
+// @route       PATCH /api/v1/reactivate-account
+// @access      Private (requires a valid token, even though isActive is false)
+export const reactivateAccount = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = await User.findById(req.user?._id);
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    if (user.isActive) {
+      return next(new ErrorHandler("Your account is already active", 400));
+    }
+
+    user.isActive = true;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Your account has been reactivated",
     });
   },
 );

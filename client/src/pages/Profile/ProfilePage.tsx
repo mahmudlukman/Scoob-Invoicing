@@ -8,6 +8,7 @@ import {
   User,
   Upload,
   X,
+  Coins,
 } from "lucide-react";
 import InputField from "../../components/ui/InputField";
 import TextareaField from "../../components/ui/TextareaField";
@@ -15,6 +16,7 @@ import toast from "react-hot-toast";
 import { useUpdateUserProfileMutation } from "../../redux/features/user/userApi";
 import { useSelector } from "react-redux";
 import type { RootState, ServerError } from "../../@types";
+import { SUPPORTED_CURRENCIES } from "../../utils/currencies";
 
 interface ProfileFormData {
   name: string;
@@ -25,6 +27,7 @@ interface ProfileFormData {
 
 interface UpdateProfileData extends ProfileFormData {
   businessLogo?: string;
+  defaultCurrency?: { code: string; symbol: string };
 }
 
 const ProfilePage = () => {
@@ -39,13 +42,17 @@ const ProfilePage = () => {
     phone: user?.phone || "",
   });
 
+  const [currencyCode, setCurrencyCode] = useState(
+    user?.defaultCurrency?.code || "NGN",
+  );
+
   const [logoPreview, setLogoPreview] = useState<string>(
-    user?.businessLogo?.url || ""
+    user?.businessLogo?.url || "",
   );
   const [logoFile, setLogoFile] = useState<string | null>(null);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -85,7 +92,16 @@ const ProfilePage = () => {
     e.preventDefault();
 
     try {
-      const updateData: UpdateProfileData = { ...formData };
+      const selectedCurrency = SUPPORTED_CURRENCIES.find(
+        (c) => c.code === currencyCode,
+      );
+
+      const updateData: UpdateProfileData = {
+        ...formData,
+        defaultCurrency: selectedCurrency
+          ? { code: selectedCurrency.code, symbol: selectedCurrency.symbol }
+          : undefined,
+      };
 
       if (logoFile) {
         updateData.businessLogo = logoFile;
@@ -93,7 +109,7 @@ const ProfilePage = () => {
 
       await updateUserProfile({ data: updateData }).unwrap();
       toast.success("Profile updated successfully!");
-      setLogoFile(null); 
+      setLogoFile(null);
     } catch (err: unknown) {
       const serverError = err as ServerError;
       const errorMessage =
@@ -230,6 +246,32 @@ const ProfilePage = () => {
                 onChange={handleInputChange}
                 placeholder="(555) 123-4567"
               />
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Default Currency
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Coins className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <select
+                    value={currencyCode}
+                    onChange={(e) => setCurrencyCode(e.target.value)}
+                    className="w-full h-10 pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+                  >
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} — {c.name} ({c.symbol})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  New invoices will default to this currency. You can still
+                  change it per invoice.
+                </p>
+              </div>
             </div>
           </div>
         </div>

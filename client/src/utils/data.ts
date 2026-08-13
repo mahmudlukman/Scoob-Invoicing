@@ -8,6 +8,7 @@ import {
   Sparkles,
   User,
   UserRoundCog,
+  Settings,
 } from "lucide-react";
 import type { InvoiceFormData } from "../@types";
 
@@ -137,6 +138,12 @@ export const NAVIGATION_MENU = [
     id: "invoice/customize",
     name: "Customize Invoice",
     icon: Sparkles,
+    visible: ["user", "admin"] as const,
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    icon: Settings,
     visible: ["user", "admin"] as const,
   },
   {

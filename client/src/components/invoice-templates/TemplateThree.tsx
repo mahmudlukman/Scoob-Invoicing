@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { addThousandsSeparator } from "../../utils/helper";
-import { getPaymentInfo, getStatusColor } from "../../utils/invoiceHelpers";
+import {
+  getPaymentInfo,
+  getStatusColor,
+  getCurrencySymbol,
+} from "../../utils/invoiceHelpers";
 import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
 
 const DEFAULT_THEME = ["#FAFAF9", "#D97706", "#FEF3C7", "#92400E", "#1C1917"];
@@ -34,6 +38,7 @@ const TemplateThree = ({
 
   const statusColor = getStatusColor(invoice.status);
   const { amountPaid, balanceDue } = getPaymentInfo(invoice);
+  const currencySymbol = getCurrencySymbol(invoice);
   const isPartiallyPaid = invoice.status === "Partially Paid";
 
   return (
@@ -182,7 +187,7 @@ const TemplateThree = ({
                   className="text-xl font-bold mt-0.5"
                   style={{ color: themeColors[4] }}
                 >
-                  ₦
+                  {currencySymbol}
                   {addThousandsSeparator(
                     isPartiallyPaid ? balanceDue : (invoice.total ?? 0),
                   )}
@@ -192,7 +197,8 @@ const TemplateThree = ({
                     className="text-[10px] mt-1"
                     style={{ color: themeColors[3] }}
                   >
-                    ₦{addThousandsSeparator(amountPaid)} paid so far
+                    {currencySymbol}
+                    {addThousandsSeparator(amountPaid)} paid so far
                   </p>
                 )}
               </div>
@@ -257,10 +263,11 @@ const TemplateThree = ({
                     {item.quantity}
                   </td>
                   <td className="py-3 text-right text-sm text-slate-500">
-                    ₦{addThousandsSeparator(item.unitPrice)}
+                    {currencySymbol}
+                    {addThousandsSeparator(item.unitPrice)}
                   </td>
                   <td className="py-3 text-right text-sm font-semibold text-slate-800">
-                    ₦
+                    {currencySymbol}
                     {addThousandsSeparator(
                       item.total ??
                         item.quantity *
@@ -278,11 +285,17 @@ const TemplateThree = ({
             <div className="w-52 space-y-1.5">
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Subtotal</span>
-                <span>₦{addThousandsSeparator(invoice.subtotal ?? 0)}</span>
+                <span>
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.subtotal ?? 0)}
+                </span>
               </div>
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Tax</span>
-                <span>₦{addThousandsSeparator(invoice.taxTotal ?? 0)}</span>
+                <span>
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.taxTotal ?? 0)}
+                </span>
               </div>
               <div
                 className="flex justify-between text-sm font-bold pt-2"
@@ -293,7 +306,8 @@ const TemplateThree = ({
               >
                 <span>Total</span>
                 <span style={{ color: themeColors[1] }}>
-                  ₦{addThousandsSeparator(invoice.total ?? 0)}
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.total ?? 0)}
                 </span>
               </div>
 
@@ -307,14 +321,20 @@ const TemplateThree = ({
                     style={{ color: themeColors[1] }}
                   >
                     <span>Paid</span>
-                    <span>₦{addThousandsSeparator(amountPaid)}</span>
+                    <span>
+                      {currencySymbol}
+                      {addThousandsSeparator(amountPaid)}
+                    </span>
                   </div>
                   <div
                     className="flex justify-between text-xs font-bold"
                     style={{ color: themeColors[4] }}
                   >
                     <span>Balance</span>
-                    <span>₦{addThousandsSeparator(balanceDue)}</span>
+                    <span>
+                      {currencySymbol}
+                      {addThousandsSeparator(balanceDue)}
+                    </span>
                   </div>
                 </div>
               )}

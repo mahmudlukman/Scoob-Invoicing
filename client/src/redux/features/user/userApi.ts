@@ -62,11 +62,51 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "User", id: "LIST" }],
     }),
+    // add to userApi.ts
+    deleteAccount: builder.mutation<
+      { success: boolean; message: string },
+      { password: string }
+    >({
+      query: (data) => ({
+        url: "delete-account",
+        method: "DELETE",
+        body: data,
+        credentials: "include" as const,
+      }),
+      invalidatesTags: [{ type: "User", id: "LIST" }],
+    }),
+    // add to userApi.ts
+    deactivateAccount: builder.mutation<
+      { success: boolean; message: string },
+      { password: string }
+    >({
+      query: (data) => ({
+        url: "deactivate-account",
+        method: "PATCH",
+        body: data,
+        credentials: "include" as const,
+      }),
+    }),
+
+    reactivateAccount: builder.mutation<
+      { success: boolean; message: string },
+      void
+    >({
+      query: () => ({
+        url: "reactivate-account",
+        method: "PATCH",
+        credentials: "include" as const,
+      }),
+      invalidatesTags: ["User"],
+    }),
   }),
 });
 
 export const {
   useDeleteUserMutation,
+  useDeleteAccountMutation,
+  useDeactivateAccountMutation,
+  useReactivateAccountMutation,
   useGetAllUsersQuery,
   useGetUserQuery,
   useUpdateUserPasswordMutation,

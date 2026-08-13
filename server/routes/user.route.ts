@@ -8,6 +8,9 @@ import {
   updateUserStatus,
   updateUserProfile,
   updateDefaultCurrency,
+  deleteAccount,
+  reactivateAccount,
+  deactivateAccount,
 } from "../controllers/user.controller";
 import { authorizeRoles, isAuthenticated } from "../middleware/auth";
 import {
@@ -59,5 +62,9 @@ userRouter.delete(
   authorizeRoles("admin"),
   deleteUser,
 );
+
+userRouter.delete("/delete-account", isAuthenticated, deleteAccount);
+userRouter.patch("/deactivate-account", isAuthenticated, deactivateAccount);
+userRouter.patch("/reactivate-account", isAuthenticated, reactivateAccount);
 
 export default userRouter;

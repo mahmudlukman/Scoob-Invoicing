@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { addThousandsSeparator } from "../../utils/helper";
-import { getPaymentInfo, getStatusColor } from "../../utils/invoiceHelpers";
+import {
+  getPaymentInfo,
+  getStatusColor,
+  getCurrencySymbol,
+} from "../../utils/invoiceHelpers";
 import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
 
 const DEFAULT_THEME = ["#F0FDF4", "#16A34A", "#DCFCE7", "#15803D", "#1E293B"];
@@ -34,6 +38,7 @@ const TemplateOne = ({
 
   const statusColor = getStatusColor(invoice.status);
   const { amountPaid, balanceDue } = getPaymentInfo(invoice);
+  const currencySymbol = getCurrencySymbol(invoice);
   const isPartiallyPaid = invoice.status === "Partially Paid";
 
   return (
@@ -238,10 +243,11 @@ const TemplateOne = ({
                     {item.quantity}
                   </td>
                   <td className="py-3 text-right text-sm text-slate-600">
-                    ₦{addThousandsSeparator(item.unitPrice)}
+                    {currencySymbol}
+                    {addThousandsSeparator(item.unitPrice)}
                   </td>
                   <td className="py-3 text-right text-sm font-semibold text-slate-800">
-                    ₦
+                    {currencySymbol}
                     {addThousandsSeparator(
                       item.total ??
                         item.quantity *
@@ -259,11 +265,17 @@ const TemplateOne = ({
             <div className="w-56 space-y-2">
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Subtotal</span>
-                <span>₦{addThousandsSeparator(invoice.subtotal ?? 0)}</span>
+                <span>
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.subtotal ?? 0)}
+                </span>
               </div>
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Tax</span>
-                <span>₦{addThousandsSeparator(invoice.taxTotal ?? 0)}</span>
+                <span>
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.taxTotal ?? 0)}
+                </span>
               </div>
               <div
                 className="flex justify-between text-sm font-bold pt-2 mt-2"
@@ -274,7 +286,8 @@ const TemplateOne = ({
               >
                 <span>Total Due</span>
                 <span style={{ color: themeColors[1] }}>
-                  ₦{addThousandsSeparator(invoice.total ?? 0)}
+                  {currencySymbol}
+                  {addThousandsSeparator(invoice.total ?? 0)}
                 </span>
               </div>
 
@@ -283,18 +296,22 @@ const TemplateOne = ({
                   className="pt-2 mt-2 space-y-1.5"
                   style={{ borderTop: `1px dashed ${themeColors[1]}80` }}
                 >
-                  <div
-                    className="flex justify-between text-xs font-medium text-slate-500"
-                  >
+                  <div className="flex justify-between text-xs font-medium text-slate-500">
                     <span>Amount Paid</span>
-                    <span>₦{addThousandsSeparator(amountPaid)}</span>
+                    <span>
+                      {currencySymbol}
+                      {addThousandsSeparator(amountPaid)}
+                    </span>
                   </div>
                   <div
                     className="flex justify-between text-xs font-bold"
                     style={{ color: themeColors[4] }}
                   >
                     <span>Balance Due</span>
-                    <span>₦{addThousandsSeparator(balanceDue)}</span>
+                    <span>
+                      {currencySymbol}
+                      {addThousandsSeparator(balanceDue)}
+                    </span>
                   </div>
                 </div>
               )}

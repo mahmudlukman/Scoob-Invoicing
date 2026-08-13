@@ -72,6 +72,9 @@ const InvoiceDetail = () => {
 
   const invoice = invoiceResponse?.invoice || invoiceResponse;
 
+  // Falls back to ₦ for invoices created before the currency field existed
+  const currencySymbol = invoice?.currency?.symbol || "₦";
+
   // Handles responsive scaling/height calculations safely without render cycle leaks
   useEffect(() => {
     if (isEditing) return;
@@ -307,19 +310,22 @@ const InvoiceDetail = () => {
             <div>
               <span className="text-slate-500">Total: </span>
               <span className="font-semibold text-slate-900 tabular-nums">
-                ₦{addThousandsSeparator(invoice.total)}
+                {currencySymbol}
+                {addThousandsSeparator(invoice.total)}
               </span>
             </div>
             <div>
               <span className="text-slate-500">Paid: </span>
               <span className="font-semibold text-emerald-700 tabular-nums">
-                ₦{addThousandsSeparator(amountPaid)}
+                {currencySymbol}
+                {addThousandsSeparator(amountPaid)}
               </span>
             </div>
             <div>
               <span className="text-slate-500">Balance: </span>
               <span className="font-semibold text-slate-900 tabular-nums">
-                ₦{addThousandsSeparator(balanceDue)}
+                {currencySymbol}
+                {addThousandsSeparator(balanceDue)}
               </span>
             </div>
           </div>
@@ -338,7 +344,8 @@ const InvoiceDetail = () => {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-900 tabular-nums">
-                    ₦{addThousandsSeparator(payment.amount)}
+                    {currencySymbol}
+                    {addThousandsSeparator(payment.amount)}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {format(new Date(payment.date), "MMM d, yyyy")}

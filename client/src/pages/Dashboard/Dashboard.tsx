@@ -8,6 +8,7 @@ import AIInsightsCard from "../../components/ui/AllInsightsCard";
 import { addThousandsSeparator } from "../../utils/helper";
 import Loading from "../../components/ui/Loading";
 import IncomeByMonthChart from "../../components/analytics/IncomeByMonth";
+import type { Invoice } from "../../@types";
 
 const statusBadgeClasses = (status: string) =>
   `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -17,6 +18,13 @@ const statusBadgeClasses = (status: string) =>
         ? "bg-amber-100 text-amber-800"
         : "bg-red-100 text-red-800"
   }`;
+
+interface CurrencyStats {
+  code: string;
+  symbol: string;
+  totalPaid: number;
+  totalUnpaid: number;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -29,14 +37,31 @@ const Dashboard = () => {
   // Calculate stats from invoices
   const stats = React.useMemo(() => {
     const totalInvoices = invoices.length;
-    const totalPaid = invoices
-      .filter((inv) => inv.status === "Paid")
-      .reduce((acc, inv) => acc + inv.total, 0);
-    const totalUnpaid = invoices
-      .filter((inv) => inv.status !== "Paid")
-      .reduce((acc, inv) => acc + inv.total, 0);
 
-    return { totalInvoices, totalPaid, totalUnpaid };
+    // Group by currency so mixed-currency totals never get summed together —
+    // ₦100 + $100 is not a meaningful number.
+    const byCurrency = new Map<string, CurrencyStats>();
+
+    invoices.forEach((inv: Invoice) => {
+      const code = inv.currency?.code || "NGN";
+      const symbol = inv.currency?.symbol || "₦";
+
+      if (!byCurrency.has(code)) {
+        byCurrency.set(code, { code, symbol, totalPaid: 0, totalUnpaid: 0 });
+      }
+      const entry = byCurrency.get(code)!;
+
+      if (inv.status === "Paid") {
+        entry.totalPaid += inv.total;
+      } else {
+        entry.totalUnpaid += inv.total;
+      }
+    });
+
+    return {
+      totalInvoices,
+      currencyBreakdown: Array.from(byCurrency.values()),
+    };
   }, [invoices]);
 
   // Get recent invoices (last 5, sorted by date)
@@ -48,33 +73,6 @@ const Dashboard = () => {
       )
       .slice(0, 5);
   }, [invoices]);
-
-  const statsData = [
-    {
-      icon: FileText,
-      label: "Total Invoices",
-      value: stats.totalInvoices,
-      color: "blue" as const,
-    },
-    {
-      icon: Banknote,
-      label: "Total Paid",
-      value: `₦${addThousandsSeparator(stats.totalPaid)}`,
-      color: "emerald" as const,
-    },
-    {
-      icon: Banknote,
-      label: "Total Unpaid",
-      value: `₦${addThousandsSeparator(stats.totalUnpaid)}`,
-      color: "red" as const,
-    },
-  ];
-
-  const colorClasses = {
-    blue: { bg: "bg-blue-100", text: "text-blue-600" },
-    emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
-    red: { bg: "bg-red-100", text: "text-red-600" },
-  };
 
   if (isLoading) {
     return <Loading />;
@@ -108,31 +106,63 @@ const Dashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {statsData.map((stat, index) => (
-          <div
-            key={index}
-            className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg shadow-gray-100"
-          >
-            <div className="flex items-center">
-              <div
-                className={`flex-shrink-0 w-12 h-12 ${
-                  colorClasses[stat.color].bg
-                } rounded-lg flex items-center justify-center`}
-              >
-                <stat.icon
-                  className={`w-6 h-6 ${colorClasses[stat.color].text}`}
-                />
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg shadow-gray-100">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <div className="ml-4 min-w-0">
+              <div className="text-sm font-medium text-slate-500 truncate">
+                Total Invoices
               </div>
-              <div className="ml-4 min-w-0">
-                <div className="text-sm font-medium text-slate-500 truncate">
-                  {stat.label}
-                </div>
-                <div className="text-2xl font-bold text-slate-900 break-words">
-                  {stat.value}
-                </div>
+              <div className="text-2xl font-bold text-slate-900 break-words">
+                {stats.totalInvoices}
               </div>
             </div>
           </div>
+        </div>
+
+        {/* One Paid / Unpaid pair per currency actually in use.
+            Most users only ever see one currency here, so this looks
+            identical to the old fixed 3-card layout in the common case. */}
+        {stats.currencyBreakdown.map((c) => (
+          <React.Fragment key={c.code}>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg shadow-gray-100">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <Banknote className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div className="ml-4 min-w-0">
+                  <div className="text-sm font-medium text-slate-500 truncate">
+                    Total Paid
+                    {stats.currencyBreakdown.length > 1 ? ` (${c.code})` : ""}
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900 break-words">
+                    {c.symbol}
+                    {addThousandsSeparator(c.totalPaid)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg shadow-gray-100">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <Banknote className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="ml-4 min-w-0">
+                  <div className="text-sm font-medium text-slate-500 truncate">
+                    Total Unpaid
+                    {stats.currencyBreakdown.length > 1 ? ` (${c.code})` : ""}
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900 break-words">
+                    {c.symbol}
+                    {addThousandsSeparator(c.totalUnpaid)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </React.Fragment>
         ))}
       </div>
 
@@ -157,45 +187,48 @@ const Dashboard = () => {
           <>
             {/* Mobile: stacked cards (below md) */}
             <div className="md:hidden divide-y divide-slate-200">
-              {recentInvoices.map((invoice) => (
-                <div
-                  key={invoice._id}
-                  className="p-4 space-y-3 cursor-pointer active:bg-slate-50"
-                  onClick={() => navigate(`/invoice/${invoice._id}`)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {invoice.billTo.clientName}
-                      </p>
-                      <p className="text-sm text-slate-500 truncate mt-0.5">
-                        #{invoice.invoiceNumber}
-                      </p>
+              {recentInvoices.map((invoice) => {
+                const symbol = invoice.currency?.symbol || "₦";
+                return (
+                  <div
+                    key={invoice._id}
+                    className="p-4 space-y-3 cursor-pointer active:bg-slate-50"
+                    onClick={() => navigate(`/invoice/${invoice._id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {invoice.billTo.clientName}
+                        </p>
+                        <p className="text-sm text-slate-500 truncate mt-0.5">
+                          #{invoice.invoiceNumber}
+                        </p>
+                      </div>
+                      <span className={statusBadgeClasses(invoice.status)}>
+                        {invoice.status}
+                      </span>
                     </div>
-                    <span className={statusBadgeClasses(invoice.status)}>
-                      {invoice.status}
-                    </span>
-                  </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-sm font-semibold text-slate-900 tabular-nums">
-                        ₦
-                        {addThousandsSeparator(
-                          Number(invoice.total.toFixed(2)),
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-500">Due Date</p>
-                      <p className="text-sm text-slate-600 tabular-nums">
-                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-slate-500">Amount</p>
+                        <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                          {symbol}
+                          {addThousandsSeparator(
+                            Number(invoice.total.toFixed(2)),
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">Due Date</p>
+                        <p className="text-sm text-slate-600 tabular-nums">
+                          {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Desktop/tablet: table (md and up) */}
@@ -218,38 +251,41 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {recentInvoices.map((invoice) => (
-                    <tr
-                      key={invoice._id}
-                      className="hover:bg-slate-50 cursor-pointer"
-                      onClick={() => navigate(`/invoice/${invoice._id}`)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900">
-                          {invoice.billTo.clientName}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          #{invoice.invoiceNumber}
-                        </div>
-                      </td>
+                  {recentInvoices.map((invoice) => {
+                    const symbol = invoice.currency?.symbol || "₦";
+                    return (
+                      <tr
+                        key={invoice._id}
+                        className="hover:bg-slate-50 cursor-pointer"
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-slate-900">
+                            {invoice.billTo.clientName}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            #{invoice.invoiceNumber}
+                          </div>
+                        </td>
 
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 tabular-nums">
-                        ₦
-                        {addThousandsSeparator(
-                          Number(invoice.total.toFixed(2)),
-                        )}
-                      </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 tabular-nums">
+                          {symbol}
+                          {addThousandsSeparator(
+                            Number(invoice.total.toFixed(2)),
+                          )}
+                        </td>
 
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={statusBadgeClasses(invoice.status)}>
-                          {invoice.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 tabular-nums">
-                        {format(new Date(invoice.dueDate), "MMM d, yyyy")}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={statusBadgeClasses(invoice.status)}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 tabular-nums">
+                          {format(new Date(invoice.dueDate), "MMM d, yyyy")}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

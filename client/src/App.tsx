@@ -19,6 +19,7 @@ import TermsOfUsePage from "./pages/LandingPage/TermsOfUsePage";
 import AboutPage from "./pages/LandingPage/AboutPage";
 import ContactPage from "./pages/LandingPage/ContactPage";
 import AllCustomers from "./pages/Invoices/AllCustomers";
+import SettingsPage from "./pages/Settings/SettingsPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
       { path: "invoices/new", element: <CreateInvoice /> },
       { path: "invoice/:id", element: <InvoiceDetail /> },
       { path: "invoice/customize", element: <CustomizeInvoice /> },
+      { path: "settings", element: <SettingsPage /> },
       { path: "profile", element: <ProfilePage /> },
     ],
   },
