@@ -57,6 +57,8 @@ const StatusBadge = ({ invoice }: { invoice: Invoice }) => {
 };
 
 const AmountCell = ({ invoice }: { invoice: Invoice }) => {
+  const currencySymbol = invoice.currency?.symbol || "₦";
+
   const paidPercent =
     invoice.total > 0
       ? Math.min(100, (invoice.amountPaid / invoice.total) * 100)
@@ -65,7 +67,8 @@ const AmountCell = ({ invoice }: { invoice: Invoice }) => {
   return (
     <div>
       <p className="text-sm font-semibold text-slate-900 tabular-nums">
-        ₦{addThousandsSeparator(invoice.total)}
+        {currencySymbol}
+        {addThousandsSeparator(invoice.total)}
       </p>
       {invoice.status === "Partially Paid" && (
         <div className="mt-1.5 w-28">
@@ -76,7 +79,8 @@ const AmountCell = ({ invoice }: { invoice: Invoice }) => {
             />
           </div>
           <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
-            ₦{addThousandsSeparator(invoice.amountPaid)} of ₦
+            {currencySymbol}
+            {addThousandsSeparator(invoice.amountPaid)} of {currencySymbol}
             {addThousandsSeparator(invoice.total)}
           </p>
         </div>

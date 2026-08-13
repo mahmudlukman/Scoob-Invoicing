@@ -22,12 +22,18 @@ export interface InvoicePreferences {
   colorPalette: InvoiceColorPalette;
 }
 
+export interface Currency {
+  code: string;
+  symbol: string;
+}
+
 export interface User {
   _id: string;
   name: string;
   email: string;
   businessLogo?: BusinessLogo;
   businessName: string;
+  defaultCurrency?: Currency;
   address: string;
   phone: string;
   role: string;
@@ -58,6 +64,7 @@ export interface Invoice {
   total: number;
   subtotal: number;
   taxTotal: number;
+  currency: Currency;
   invoiceDate: string;
   dueDate: string;
   invoiceNumber: string;
@@ -93,6 +100,7 @@ export interface InvoiceFormData {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
+  currency?: Currency;
   billFrom: BillInfo;
   billTo: BillInfo;
   items: InvoiceItem[];

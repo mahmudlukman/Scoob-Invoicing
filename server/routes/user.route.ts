@@ -7,6 +7,7 @@ import {
   updatePassword,
   updateUserStatus,
   updateUserProfile,
+  updateDefaultCurrency,
 } from "../controllers/user.controller";
 import { authorizeRoles, isAuthenticated } from "../middleware/auth";
 import {
@@ -38,6 +39,13 @@ userRouter.put(
   uploadLimiter,
   updateUserProfile,
 );
+
+userRouter.patch(
+  "/update-default-currency",
+  isAuthenticated,
+  updateDefaultCurrency,
+);
+
 userRouter.put(
   "/update-user-status",
   isAuthenticated,

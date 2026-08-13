@@ -16,6 +16,10 @@ import SelectField from "../../components/ui/SelectedField";
 import { addThousandsSeparator } from "../../utils/helper";
 import { useGetCustomersQuery } from "../../redux/features/customer/customerApi";
 import type { Customer } from "../../redux/features/customer/customerApi";
+import {
+  getCurrencyByCode,
+  SUPPORTED_CURRENCIES,
+} from "../../utils/currencies";
 
 interface CreateInvoiceProps {
   existingInvoice?: InvoiceFormData;
@@ -34,6 +38,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
 
   const { data: invoicesData } = useGetAllInvoicesQuery();
   const [createInvoice, { isLoading: isCreating }] = useCreateInvoiceMutation();
+  const [currencyCode, setCurrencyCode] = useState(
+    user?.defaultCurrency?.code || "NGN",
+  );
+
+  const currencySymbol = useMemo(
+    () => getCurrencyByCode(currencyCode).symbol,
+    [currencyCode],
+  );
 
   // Initialize form data with fallback values to ensure controlled inputs
   const initialFormData = useMemo(() => {
@@ -253,12 +265,17 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
       };
     });
 
+    const selectedCurrency = SUPPORTED_CURRENCIES.find(
+      (c) => c.code === currencyCode,
+    );
+
     const finalFormData: InvoiceFormData = {
       ...formData,
       items: itemsWithTotal,
       subtotal,
       taxTotal,
       total,
+      currency: selectedCurrency,
       saveCustomer: !selectedCustomerId && saveCustomer,
     };
 
@@ -309,7 +326,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
 
       {/* Meta details section */}
       <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <InputField
             label="Invoice Number"
             name="invoiceNumber"
@@ -334,6 +351,22 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             value={formData.dueDate}
             onChange={handleInputChange}
           />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Currency
+            </label>
+            <select
+              value={currencyCode}
+              onChange={(e) => setCurrencyCode(e.target.value)}
+              className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} — {c.name} ({c.symbol})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -424,8 +457,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             value={formData.billTo.phone}
             onChange={(e) => handleInputChange(e, "billTo")}
           />
-          {/* Save customer checkbox — hidden once an existing customer is selected,
-              disabled until a client name has been entered */}
           {!selectedCustomerId && (
             <div className="flex items-center gap-2 pt-1">
               <input
@@ -495,7 +526,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                      ₦
+                      {currencySymbol}
                     </span>
                     <input
                       type="number"
@@ -551,7 +582,8 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                 <div className="flex justify-between items-center pt-1 text-sm">
                   <span className="text-slate-500">Line total</span>
                   <span className="font-semibold text-slate-900 tabular-nums">
-                    ₦{formatCurrencyValue(calculatedItemTotal)}
+                    {currencySymbol}
+                    {formatCurrencyValue(calculatedItemTotal)}
                   </span>
                 </div>
               </div>
@@ -617,7 +649,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                     <td className="px-6 py-4">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                          ₦
+                          {currencySymbol}
                         </span>
                         <input
                           type="number"
@@ -648,7 +680,8 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                       />
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-700 font-medium tabular-nums">
-                      ₦{formatCurrencyValue(calculatedItemTotal)}
+                      {currencySymbol}
+                      {formatCurrencyValue(calculatedItemTotal)}
                     </td>
                     <td className="px-6 py-4">
                       <Button
@@ -702,15 +735,23 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
           <div className="space-y-4">
             <div className="flex justify-between text-sm text-slate-600">
               <p>Subtotal:</p>
-              <p>₦{formatCurrencyValue(subtotal)}</p>
+              <p>
+                {currencySymbol} 
+                {formatCurrencyValue(subtotal)}
+              </p>
             </div>
             <div className="flex justify-between text-sm text-slate-600">
               <p>Tax:</p>
-              <p>₦{formatCurrencyValue(taxTotal)}</p>
+              <p>
+                {currencySymbol} 
+                {formatCurrencyValue(taxTotal)}
+              </p>
             </div>
             <div className="flex justify-between text-sm font-semibold text-slate-900 border-t border-slate-200 pt-4 mt-4">
               <p>Total:</p>
-              <p>₦{formatCurrencyValue(total)}</p>
+              <p>
+                {currencySymbol} {formatCurrencyValue(total)}
+              </p>
             </div>
           </div>
         </div>

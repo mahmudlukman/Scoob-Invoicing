@@ -4,6 +4,7 @@ import User, { IUser } from "../models/User";
 import ErrorHandler from "../utils/errorHandler";
 import cloudinary from "cloudinary";
 import { FilterQuery } from "mongoose";
+import { getCurrencyByCode } from "../utils/currencies";
 
 // @desc       get logged in user
 // @route      PUT /api/v1/me
@@ -19,7 +20,7 @@ export const getMe = catchAsyncError(
       success: true,
       user,
     });
-  }
+  },
 );
 
 // @desc       update user profile
@@ -72,11 +73,33 @@ export const updateUserProfile = catchAsyncError(
     const updatedUser = await User.findByIdAndUpdate(
       req.user?._id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     res.status(200).json({ success: true, user: updatedUser });
-  }
+  },
+);
+
+// @desc    Update default currency for new invoices
+// @route   PATCH /api/v1/update-default-currency
+// @access  Private
+export const updateDefaultCurrency = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { code } = req.body;
+    const currency = getCurrencyByCode(code);
+
+    const user = await User.findByIdAndUpdate(
+      req.user?._id,
+      { defaultCurrency: currency },
+      { new: true },
+    );
+
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    res
+      .status(200)
+      .json({ success: true, defaultCurrency: user.defaultCurrency });
+  },
 );
 
 // @desc       update user password
@@ -113,8 +136,8 @@ export const updatePassword = catchAsyncError(
       return next(
         new ErrorHandler(
           "New password must be different from the previous one!",
-          400
-        )
+          400,
+        ),
       );
     }
 
@@ -122,8 +145,8 @@ export const updatePassword = catchAsyncError(
       return next(
         new ErrorHandler(
           "Password must be at least 6 characters and no more than 20 characters!",
-          400
-        )
+          400,
+        ),
       );
     }
 
@@ -134,7 +157,7 @@ export const updatePassword = catchAsyncError(
       success: true,
       message: "Password updated successfully!",
     });
-  }
+  },
 );
 
 // @desc       get user by Id
@@ -147,7 +170,7 @@ export const getUserById = catchAsyncError(
       success: true,
       user,
     });
-  }
+  },
 );
 
 // @desc       get all users
@@ -159,7 +182,7 @@ export const getAllUsers = catchAsyncError(
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(
       50,
-      Math.max(1, parseInt(req.query.pageSize as string) || 10)
+      Math.max(1, parseInt(req.query.pageSize as string) || 10),
     );
     const search = req.query.search as string;
     const role = req.query.role as string;
@@ -238,7 +261,7 @@ export const getAllUsers = catchAsyncError(
         sortOrder,
       },
     });
-  }
+  },
 );
 
 // @desc       update user status
@@ -256,11 +279,11 @@ export const updateUserStatus = catchAsyncError(
     const updatedUser = await User.findByIdAndUpdate(
       id,
       { role, isActive },
-      { new: true }
+      { new: true },
     );
 
     res.status(201).json({ success: true, updatedUser });
-  }
+  },
 );
 
 // @desc       delete user
@@ -280,5 +303,5 @@ export const deleteUser = catchAsyncError(
       success: true,
       message: "User deleted successfully!",
     });
-  }
+  },
 );

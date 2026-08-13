@@ -32,6 +32,7 @@ export interface IUser extends Document {
   businessName: string;
   businessLogo?: Logo;
   address: string;
+  defaultCurrency?: { code: string; symbol: string };
   phone: string;
   role: string;
   isActive?: boolean;
@@ -74,6 +75,10 @@ const UserSchema: Schema<IUser> = new Schema(
     address: {
       type: String,
       default: "",
+    },
+    defaultCurrency: {
+      code: { type: String, default: "NGN" },
+      symbol: { type: String, default: "₦" },
     },
     phone: {
       type: String,

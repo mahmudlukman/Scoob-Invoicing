@@ -3,12 +3,12 @@ import { catchAsyncError } from "../middleware/catchAsyncErrors";
 import User from "../models/User";
 import ErrorHandler from "../utils/errorHandler";
 import Invoice, { IItem } from "../models/Invoice";
-
 import Customer from "../models/Customer";
 import {
   computeStatusFromPayments,
   getInvoiceComputedFields,
 } from "../utils/invoiceHelper";
+import { getCurrencyByCode } from "../utils/currencies";
 
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
@@ -25,7 +25,8 @@ export const createInvoice = catchAsyncError(
       items,
       notes,
       paymentTerms,
-      saveCustomer, // new: boolean from the checkbox
+      saveCustomer,
+      currency,
     } = req.body;
 
     //  subtotal calculation
@@ -38,6 +39,10 @@ export const createInvoice = catchAsyncError(
     });
 
     const total = subtotal + taxTotal;
+
+    const resolvedCurrency = currency?.code
+      ? currency
+      : getCurrencyByCode(user?.defaultCurrency?.code);
 
     const invoice = new Invoice({
       user,
@@ -52,6 +57,7 @@ export const createInvoice = catchAsyncError(
       subtotal,
       taxTotal,
       total,
+      currency: resolvedCurrency,
     });
 
     await invoice.save();

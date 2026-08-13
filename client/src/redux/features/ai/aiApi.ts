@@ -1,6 +1,6 @@
 import { apiSlice } from "../api/apiSlice";
 
-export const userApi = apiSlice.injectEndpoints({
+export const aiApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     parseInvoiceFromText: builder.mutation({
       query: (data) => ({
@@ -45,4 +45,4 @@ export const {
   useGenerateReminderEmailMutation,
   useSendReminderEmailMutation,
   useGetDashboardSummaryQuery,
-} = userApi;
+} = aiApi;

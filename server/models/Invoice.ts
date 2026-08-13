@@ -1,5 +1,18 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
+export interface ICurrency {
+  code: string;
+  symbol: string;
+}
+
+const CurrencySchema = new Schema<ICurrency>(
+  {
+    code: { type: String, required: true },
+    symbol: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 // Item interface
 export interface IItem {
   name: string;
@@ -67,6 +80,7 @@ export interface IInvoice extends Document {
   invoiceNumber: string;
   invoiceDate: Date;
   dueDate?: Date;
+  currency: ICurrency;
   billFrom: {
     businessName?: string;
     businessLogo?: string;
@@ -107,6 +121,11 @@ const InvoiceSchema = new Schema<IInvoice>(
     invoiceDate: {
       type: Date,
       default: Date.now,
+    },
+    currency: {
+      type: CurrencySchema,
+      required: true,
+      default: { code: "NGN", symbol: "₦" },
     },
     dueDate: {
       type: Date,
