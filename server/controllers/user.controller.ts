@@ -34,12 +34,19 @@ interface IUpdateUser {
   address?: string;
   phone?: string;
   businessLogo?: string;
+  defaultCurrency?: { code: string; symbol: string };
 }
 
 export const updateUserProfile = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { name, businessName, address, phone, businessLogo } =
-      req.body as IUpdateUser;
+    const {
+      name,
+      businessName,
+      address,
+      phone,
+      businessLogo,
+      defaultCurrency,
+    } = req.body as IUpdateUser;
 
     const user = await User.findById(req.user?._id);
 
@@ -53,6 +60,13 @@ export const updateUserProfile = catchAsyncError(
     if (businessName) updates.businessName = businessName;
     if (address) updates.address = address;
     if (phone) updates.phone = phone;
+    if (defaultCurrency) {
+      const currency = getCurrencyByCode(defaultCurrency.code);
+      updates.defaultCurrency = {
+        code: currency.code,
+        symbol: currency.symbol,
+      };
+    }
 
     // Handle logo upload separately (requires deletion logic)
     if (businessLogo) {
@@ -79,28 +93,6 @@ export const updateUserProfile = catchAsyncError(
     );
 
     res.status(200).json({ success: true, user: updatedUser });
-  },
-);
-
-// @desc    Update default currency for new invoices
-// @route   PATCH /api/v1/update-default-currency
-// @access  Private
-export const updateDefaultCurrency = catchAsyncError(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const { code } = req.body;
-    const currency = getCurrencyByCode(code);
-
-    const user = await User.findByIdAndUpdate(
-      req.user?._id,
-      { defaultCurrency: currency },
-      { new: true },
-    );
-
-    if (!user) return next(new ErrorHandler("User not found", 404));
-
-    res
-      .status(200)
-      .json({ success: true, defaultCurrency: user.defaultCurrency });
   },
 );
 

@@ -9,6 +9,7 @@ import {
   getIncomeByMonth,
   getInvoiceById,
   getInvoices,
+  sendReceipt,
   updateInvoice,
   updateInvoicePreferences,
 } from "../controllers/invoice.controller";
@@ -63,5 +64,6 @@ invoiceRouter.delete(
   invoiceWriteLimiter,
   deletePayment,
 );
+invoiceRouter.post("/send-receipt/:id", isAuthenticated, sendReceipt);
 
 export default invoiceRouter;

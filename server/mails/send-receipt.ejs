@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <body
+    style="
+      font-family: Arial, sans-serif;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    "
+  >
+    <div style="max-width: 600px; margin: 0 auto; padding: 32px 24px">
+      <h2 style="color: #16a34a; margin-bottom: 4px">Payment received</h2>
+      <p style="color: #64748b; margin-top: 0">Invoice <%= invoiceNumber %></p>
+
+      <p>Hi <%= clientName %>,</p>
+      <p>This confirms full payment has been received for the invoice below.</p>
+
+      <table style="width: 100%; margin: 24px 0; border-collapse: collapse">
+        <tr>
+          <td
+            style="
+              padding: 8px 0;
+              color: #64748b;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            Invoice Number
+          </td>
+          <td
+            style="
+              padding: 8px 0;
+              text-align: right;
+              font-weight: 600;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            <%= invoiceNumber %>
+          </td>
+        </tr>
+        <tr>
+          <td
+            style="
+              padding: 8px 0;
+              color: #64748b;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            Amount Paid
+          </td>
+          <td
+            style="
+              padding: 8px 0;
+              text-align: right;
+              font-weight: 600;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            <%= amount %>
+          </td>
+        </tr>
+        <tr>
+          <td
+            style="
+              padding: 8px 0;
+              color: #64748b;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            Payment Date
+          </td>
+          <td
+            style="
+              padding: 8px 0;
+              text-align: right;
+              font-weight: 600;
+              border-bottom: 1px solid #e2e8f0;
+            "
+          >
+            <%= paymentDate %>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #64748b">Payment Method</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600">
+            <%= paymentMethod %>
+          </td>
+        </tr>
+      </table>
+
+      <p>Thank you for your business.</p>
+      <p style="color: #94a3b8; font-size: 12px; margin-top: 32px">
+        <%= businessName %>
+      </p>
+    </div>
+  </body>
+</html>

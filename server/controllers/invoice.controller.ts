@@ -9,6 +9,7 @@ import {
   getInvoiceComputedFields,
 } from "../utils/invoiceHelper";
 import { getCurrencyByCode } from "../utils/currencies";
+import sendMail from "../utils/sendMail";
 
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
@@ -499,6 +500,70 @@ export const deletePayment = catchAsyncError(
       success: true,
       invoice,
       ...computed,
+    });
+  },
+);
+
+// @desc        Send a payment receipt email to the client
+// @route       POST /api/v1/invoices/:id/send-receipt
+// @access      Private
+export const sendReceipt = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
+
+    if (invoice.user.toString() !== req.user?._id.toString()) {
+      return next(
+        new ErrorHandler("Not authorized to access this invoice", 403),
+      );
+    }
+
+    if (invoice.status !== "Paid") {
+      return next(
+        new ErrorHandler(
+          "Receipts can only be sent for fully paid invoices",
+          400,
+        ),
+      );
+    }
+
+    const { email } = req.body;
+    const recipientEmail = email || invoice.billTo?.email;
+
+    if (!recipientEmail) {
+      return next(new ErrorHandler("No recipient email available", 400));
+    }
+
+    const currencySymbol = invoice.currency?.symbol || "₦";
+    const lastPayment = invoice.payments[invoice.payments.length - 1];
+
+    const paymentDateStr = lastPayment?.date
+      ? new Date(lastPayment.date).toLocaleDateString()
+      : new Date().toLocaleDateString();
+
+    await sendMail({
+      email: recipientEmail,
+      subject: `Payment Receipt — Invoice ${invoice.invoiceNumber}`,
+      template: "send-receipt.ejs",
+      data: {
+        clientName: invoice.billTo?.clientName,
+        businessName: invoice.billFrom?.businessName,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: `${currencySymbol}${(invoice.total ?? 0).toFixed(2)}`,
+        paymentDate: paymentDateStr,
+        paymentMethod: lastPayment?.method || "N/A",
+      },
+    });
+
+    // Track when the receipt was last sent so the frontend can show a
+    // "Sent" confirmation state, same pattern as reminder emails.
+    invoice.lastReceiptSentAt = new Date();
+    await invoice.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Receipt sent successfully",
+      sentTo: recipientEmail,
     });
   },
 );

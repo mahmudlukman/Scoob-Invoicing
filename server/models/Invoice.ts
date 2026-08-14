@@ -102,6 +102,7 @@ export interface IInvoice extends Document {
   taxTotal?: number;
   total?: number;
   payments: IPayment[];
+  lastReceiptSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -161,6 +162,9 @@ const InvoiceSchema = new Schema<IInvoice>(
     payments: {
       type: [PaymentSchema],
       default: [],
+    },
+    lastReceiptSentAt: {
+      type: Date,
     },
   },
   { timestamps: true },

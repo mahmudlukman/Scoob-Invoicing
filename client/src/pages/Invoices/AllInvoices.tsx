@@ -28,6 +28,7 @@ import PaymentActionDropdown from "../../components/invoices/PaymentActionDropdo
 import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
+import SendReceiptDropdown from "../../components/invoices/SendReceiptDropdown";
 
 const getStatusDisplay = (invoice: Invoice) => {
   if (invoice.status === "Paid") {
@@ -367,12 +368,18 @@ const AllInvoices = () => {
                     className="flex items-center gap-2 pt-1 flex-wrap"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <PaymentActionDropdown
-                      invoice={invoice}
-                      isProcessing={fullPaymentLoadingId === invoice._id}
-                      onFullPayment={() => handleFullPayment(invoice)}
-                      onPartialPayment={() => handleOpenPartialPayment(invoice)}
-                    />
+                    {invoice.status === "Paid" ? (
+                      <SendReceiptDropdown invoice={invoice} />
+                    ) : (
+                      <PaymentActionDropdown
+                        invoice={invoice}
+                        isProcessing={fullPaymentLoadingId === invoice._id}
+                        onFullPayment={() => handleFullPayment(invoice)}
+                        onPartialPayment={() =>
+                          handleOpenPartialPayment(invoice)
+                        }
+                      />
+                    )}
                     <Button
                       size="small"
                       variant="ghost"
@@ -480,14 +487,20 @@ const AllInvoices = () => {
                           className="flex items-center justify-end gap-2"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <PaymentActionDropdown
-                            invoice={invoice}
-                            isProcessing={fullPaymentLoadingId === invoice._id}
-                            onFullPayment={() => handleFullPayment(invoice)}
-                            onPartialPayment={() =>
-                              handleOpenPartialPayment(invoice)
-                            }
-                          />
+                          {invoice.status === "Paid" ? (
+                            <SendReceiptDropdown invoice={invoice} />
+                          ) : (
+                            <PaymentActionDropdown
+                              invoice={invoice}
+                              isProcessing={
+                                fullPaymentLoadingId === invoice._id
+                              }
+                              onFullPayment={() => handleFullPayment(invoice)}
+                              onPartialPayment={() =>
+                                handleOpenPartialPayment(invoice)
+                              }
+                            />
+                          )}
                           <Tooltip text="Edit Invoice" position="top">
                             <Button
                               size="small"

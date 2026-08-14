@@ -7,7 +7,6 @@ import {
   updatePassword,
   updateUserStatus,
   updateUserProfile,
-  updateDefaultCurrency,
   deleteAccount,
   reactivateAccount,
   deactivateAccount,
@@ -43,11 +42,7 @@ userRouter.put(
   updateUserProfile,
 );
 
-userRouter.patch(
-  "/update-default-currency",
-  isAuthenticated,
-  updateDefaultCurrency,
-);
+userRouter.patch("/update-default-currency", isAuthenticated);
 
 userRouter.put(
   "/update-user-status",

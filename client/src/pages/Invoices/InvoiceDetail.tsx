@@ -33,6 +33,7 @@ import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 import { addThousandsSeparator } from "../../utils/helper";
 import PaymentActionDropdown from "../../components/invoices/PaymentActionDropdown";
+import SendReceiptDropdown from "../../components/invoices/SendReceiptDropdown";
 
 const INVOICE_WIDTH = 680;
 
@@ -232,7 +233,9 @@ const InvoiceDetail = () => {
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {invoice.status !== "Paid" && (
+          {invoice.status === "Paid" ? (
+            <SendReceiptDropdown invoice={invoice} />
+          ) : (
             <PaymentActionDropdown
               invoice={invoice}
               isProcessing={isFullPaymentLoading}

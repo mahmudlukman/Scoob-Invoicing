@@ -123,6 +123,17 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
+    sendReceipt: builder.mutation<
+      { success: boolean; message: string },
+      { invoiceId: string; email?: string }
+    >({
+      query: ({ invoiceId, email }) => ({
+        url: `send-receipt/${invoiceId}`,
+        method: "POST",
+        body: { email },
+        credentials: "include" as const,
+      }),
+    }),
   }),
 });
 
@@ -137,4 +148,5 @@ export const {
   useDeleteInvoiceMutation,
   useAddPaymentMutation,
   useDeletePaymentMutation,
+  useSendReceiptMutation,
 } = userApi;

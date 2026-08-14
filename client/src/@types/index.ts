@@ -77,6 +77,7 @@ export interface Invoice {
   amountPaid: number;
   balanceDue: number;
   isOverdue: boolean;
+  lastReceiptSentAt?: string;
 }
 
 export interface InvoiceItem {
