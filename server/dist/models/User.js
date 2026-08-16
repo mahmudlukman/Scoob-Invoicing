@@ -77,6 +77,10 @@ const UserSchema = new mongoose_1.Schema({
         type: String,
         default: "",
     },
+    defaultCurrency: {
+        code: { type: String, default: "NGN" },
+        symbol: { type: String, default: "₦" },
+    },
     phone: {
         type: String,
         default: "",

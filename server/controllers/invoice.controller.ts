@@ -10,6 +10,7 @@ import {
 } from "../utils/invoiceHelper";
 import { getCurrencyByCode } from "../utils/currencies";
 import sendMail from "../utils/sendMail";
+import { addThousandsSeparator } from "../utils/formatCurrency";
 
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
@@ -549,14 +550,12 @@ export const sendReceipt = catchAsyncError(
         clientName: invoice.billTo?.clientName,
         businessName: invoice.billFrom?.businessName,
         invoiceNumber: invoice.invoiceNumber,
-        amount: `${currencySymbol}${(invoice.total ?? 0).toFixed(2)}`,
+        amount: `${currencySymbol}${addThousandsSeparator(invoice.total ?? 0)}`,
         paymentDate: paymentDateStr,
         paymentMethod: lastPayment?.method || "N/A",
       },
     });
 
-    // Track when the receipt was last sent so the frontend can show a
-    // "Sent" confirmation state, same pattern as reminder emails.
     invoice.lastReceiptSentAt = new Date();
     await invoice.save();
 

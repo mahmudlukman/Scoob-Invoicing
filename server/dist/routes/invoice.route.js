@@ -18,4 +18,5 @@ invoiceRouter.get("/income-by-month", auth_1.isAuthenticated, invoice_controller
 invoiceRouter.delete("/delete-invoice/:id", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.deleteInvoice);
 invoiceRouter.post("/invoices/:id/payments", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.addPayment);
 invoiceRouter.delete("/invoices/:id/payments/:paymentId", auth_1.isAuthenticated, rateLimiter_1.invoiceWriteLimiter, invoice_controller_1.deletePayment);
+invoiceRouter.post("/send-receipt/:id", auth_1.isAuthenticated, invoice_controller_1.sendReceipt);
 exports.default = invoiceRouter;

@@ -333,90 +333,130 @@ const AllInvoices = () => {
         ) : (
           <>
             {/* Mobile: stacked cards (below md) */}
-            <div className="md:hidden divide-y divide-slate-200">
+            <div className="md:hidden divide-y divide-slate-100 bg-slate-50/50">
               {filteredInvoices.map((invoice) => (
-                <div key={invoice._id} className="p-4 space-y-3">
-                  <div
-                    className="flex items-start justify-between gap-3 cursor-pointer"
-                    onClick={() => navigate(`/invoice/${invoice._id}`)}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">
+                <div
+                  key={invoice._id}
+                  className="p-4 bg-white space-y-3.5 transition-colors active:bg-slate-50/80"
+                >
+                  {/* Top Row: Invoice Number & Status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/invoice/${invoice._id}`)}
+                      className="group flex items-center gap-1.5 text-left focus:outline-none"
+                    >
+                      <span className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                         {invoice.invoiceNumber}
-                      </p>
-                      <p className="text-sm text-slate-600 truncate mt-0.5">
-                        {invoice.billTo.clientName}
-                      </p>
-                    </div>
+                      </span>
+                    </button>
                     <StatusBadge invoice={invoice} />
                   </div>
 
+                  {/* Body: Structured Grid */}
                   <div
-                    className="flex items-center justify-between cursor-pointer"
+                    className="grid grid-cols-2 gap-3 pt-0.5 cursor-pointer"
                     onClick={() => navigate(`/invoice/${invoice._id}`)}
                   >
-                    <AmountCell invoice={invoice} />
+                    {/* Client Info */}
+                    <div className="col-span-2">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Client
+                      </p>
+                      <p className="text-sm font-semibold text-slate-700 truncate mt-0.5">
+                        {invoice.billTo.clientName || "—"}
+                      </p>
+                    </div>
+
+                    {/* Amount & Progress */}
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Amount
+                      </p>
+                      <div className="mt-0.5">
+                        <AmountCell invoice={invoice} />
+                      </div>
+                    </div>
+
+                    {/* Due Date */}
                     <div className="text-right">
-                      <p className="text-xs text-slate-500">Due Date</p>
-                      <p className="text-sm text-slate-600 tabular-nums">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                        Due Date
+                      </p>
+                      <p className="text-sm font-semibold text-slate-700 tabular-nums mt-0.5">
                         {format(new Date(invoice.dueDate), "MMM d, yyyy")}
                       </p>
                     </div>
                   </div>
 
+                  {/* Action Bar */}
                   <div
-                    className="flex items-center gap-2 pt-1 flex-wrap"
+                    className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {invoice.status === "Paid" ? (
-                      <SendReceiptDropdown invoice={invoice} />
-                    ) : (
-                      <PaymentActionDropdown
-                        invoice={invoice}
-                        isProcessing={fullPaymentLoadingId === invoice._id}
-                        onFullPayment={() => handleFullPayment(invoice)}
-                        onPartialPayment={() =>
-                          handleOpenPartialPayment(invoice)
-                        }
-                      />
-                    )}
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      aria-label="Edit Invoice"
-                      onClick={() => navigate(`/invoice/${invoice._id}`)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      aria-label="Duplicate Invoice"
-                      onClick={() => handleDuplicate(invoice)}
-                      isLoading={duplicateLoading === invoice._id}
-                    >
-                      <Copy className="w-4 h-4 text-violet-500" />
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      aria-label="Delete Invoice"
-                      onClick={() =>
-                        setDeleteModal({ open: true, invoiceId: invoice._id })
-                      }
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                    {invoice.status !== "Paid" && (
+                    {/* Primary Action: Log Payment / Send Receipt */}
+                    <div className="flex-1 min-w-0">
+                      {invoice.status === "Paid" ? (
+                        <SendReceiptDropdown invoice={invoice} />
+                      ) : (
+                        <PaymentActionDropdown
+                          invoice={invoice}
+                          isProcessing={fullPaymentLoadingId === invoice._id}
+                          onFullPayment={() => handleFullPayment(invoice)}
+                          onPartialPayment={() =>
+                            handleOpenPartialPayment(invoice)
+                          }
+                        />
+                      )}
+                    </div>
+
+                    {/* Quick Action Icons */}
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button
                         size="small"
                         variant="ghost"
-                        aria-label="Generate Reminder"
-                        onClick={() => handleOpenReminderModel(invoice._id)}
+                        aria-label="Edit Invoice"
+                        onClick={() => navigate(`/invoice/${invoice._id}`)}
+                        className="p-2 h-9 w-9 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       >
-                        <Mail className="w-4 h-4 text-blue-500" />
+                        <Edit className="w-4 h-4" />
                       </Button>
-                    )}
+
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        aria-label="Duplicate Invoice"
+                        onClick={() => handleDuplicate(invoice)}
+                        isLoading={duplicateLoading === invoice._id}
+                        className="p-2 h-9 w-9 text-violet-600 hover:bg-violet-50"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+
+                      {invoice.status !== "Paid" && (
+                        <Button
+                          size="small"
+                          variant="ghost"
+                          aria-label="Generate Reminder"
+                          onClick={() => handleOpenReminderModel(invoice._id)}
+                          className="p-2 h-9 w-9 text-blue-600 hover:bg-blue-50"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </Button>
+                      )}
+
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        aria-label="Delete Invoice"
+                        onClick={() =>
+                          setDeleteModal({ open: true, invoiceId: invoice._id })
+                        }
+                        className="p-2 h-9 w-9 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -560,6 +600,7 @@ const AllInvoices = () => {
           </>
         )}
       </div>
+
       {deleteModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">

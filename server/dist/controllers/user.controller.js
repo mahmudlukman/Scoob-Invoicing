@@ -3,11 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.updateUserStatus = exports.getAllUsers = exports.getUserById = exports.updatePassword = exports.updateUserProfile = exports.getMe = void 0;
+exports.reactivateAccount = exports.deactivateAccount = exports.deleteAccount = exports.deleteUser = exports.updateUserStatus = exports.getAllUsers = exports.getUserById = exports.updatePassword = exports.updateUserProfile = exports.getMe = void 0;
 const catchAsyncErrors_1 = require("../middleware/catchAsyncErrors");
 const User_1 = __importDefault(require("../models/User"));
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
 const cloudinary_1 = __importDefault(require("cloudinary"));
+const currencies_1 = require("../utils/currencies");
+const Invoice_1 = __importDefault(require("../models/Invoice"));
+const Customer_1 = __importDefault(require("../models/Customer"));
 // @desc       get logged in user
 // @route      PUT /api/v1/me
 // @access     Private
@@ -22,7 +25,7 @@ exports.getMe = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) =
     });
 });
 exports.updateUserProfile = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
-    const { name, businessName, address, phone, businessLogo } = req.body;
+    const { name, businessName, address, phone, businessLogo, defaultCurrency, } = req.body;
     const user = await User_1.default.findById(req.user?._id);
     if (!user) {
         return next(new errorHandler_1.default("User not found", 404));
@@ -37,6 +40,13 @@ exports.updateUserProfile = (0, catchAsyncErrors_1.catchAsyncError)(async (req, 
         updates.address = address;
     if (phone)
         updates.phone = phone;
+    if (defaultCurrency) {
+        const currency = (0, currencies_1.getCurrencyByCode)(defaultCurrency.code);
+        updates.defaultCurrency = {
+            code: currency.code,
+            symbol: currency.symbol,
+        };
+    }
     // Handle logo upload separately (requires deletion logic)
     if (businessLogo) {
         if (user.businessLogo?.public_id) {
@@ -193,5 +203,81 @@ exports.deleteUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, ne
     res.status(201).json({
         success: true,
         message: "User deleted successfully!",
+    });
+});
+// @desc        Delete the logged-in user's account and all associated data
+// @route       DELETE /api/v1/delete-account
+// @access      Private
+exports.deleteAccount = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const { password } = req.body;
+    if (!password) {
+        return next(new errorHandler_1.default("Password is required to delete your account", 400));
+    }
+    const user = await User_1.default.findById(req.user?._id).select("+password");
+    if (!user)
+        return next(new errorHandler_1.default("User not found", 404));
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+        return next(new errorHandler_1.default("Incorrect password", 401));
+    }
+    const userId = user._id;
+    // Cascade delete everything tied to this user so no orphaned data remains
+    await Promise.all([
+        Invoice_1.default.deleteMany({ user: userId }),
+        Customer_1.default.deleteMany({ user: userId }),
+    ]);
+    await user.deleteOne();
+    // Clear the auth cookie so the now-deleted user's session token stops working
+    res.cookie("token", "", {
+        expires: new Date(0),
+        httpOnly: true,
+    });
+    res.status(200).json({
+        success: true,
+        message: "Your account and all associated data have been deleted",
+    });
+});
+// @desc        Deactivate the logged-in user's account (reversible)
+// @route       PATCH /api/v1/deactivate-account
+// @access      Private
+exports.deactivateAccount = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const { password } = req.body;
+    if (!password) {
+        return next(new errorHandler_1.default("Password is required to deactivate your account", 400));
+    }
+    const user = await User_1.default.findById(req.user?._id).select("+password");
+    if (!user)
+        return next(new errorHandler_1.default("User not found", 404));
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+        return next(new errorHandler_1.default("Incorrect password", 401));
+    }
+    user.isActive = false;
+    await user.save();
+    // Log the user out immediately — a deactivated account shouldn't stay signed in
+    res.cookie("token", "", {
+        expires: new Date(0),
+        httpOnly: true,
+    });
+    res.status(200).json({
+        success: true,
+        message: "Your account has been deactivated",
+    });
+});
+// @desc        Reactivate a deactivated account (called right after login if isActive is false)
+// @route       PATCH /api/v1/reactivate-account
+// @access      Private (requires a valid token, even though isActive is false)
+exports.reactivateAccount = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const user = await User_1.default.findById(req.user?._id);
+    if (!user)
+        return next(new errorHandler_1.default("User not found", 404));
+    if (user.isActive) {
+        return next(new errorHandler_1.default("Your account is already active", 400));
+    }
+    user.isActive = true;
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: "Your account has been reactivated",
     });
 });

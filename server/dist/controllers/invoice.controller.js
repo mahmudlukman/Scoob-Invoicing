@@ -3,20 +3,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePayment = exports.addPayment = exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
+exports.sendReceipt = exports.deletePayment = exports.addPayment = exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
 const catchAsyncErrors_1 = require("../middleware/catchAsyncErrors");
 const User_1 = __importDefault(require("../models/User"));
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
 const Invoice_1 = __importDefault(require("../models/Invoice"));
 const Customer_1 = __importDefault(require("../models/Customer"));
 const invoiceHelper_1 = require("../utils/invoiceHelper");
+const currencies_1 = require("../utils/currencies");
+const sendMail_1 = __importDefault(require("../utils/sendMail"));
+const formatCurrency_1 = require("../utils/formatCurrency");
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
 // @access      Private
 exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const user = req.user;
-    const { invoiceNumber, invoiceDate, dueDate, billFrom, billTo, items, notes, paymentTerms, saveCustomer, // new: boolean from the checkbox
-     } = req.body;
+    const { invoiceNumber, invoiceDate, dueDate, billFrom, billTo, items, notes, paymentTerms, saveCustomer, currency, } = req.body;
     //  subtotal calculation
     let subtotal = 0;
     let taxTotal = 0;
@@ -26,6 +28,9 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
             (item.unitPrice * item.quantity * (item.taxPercent || 0)) / 100;
     });
     const total = subtotal + taxTotal;
+    const resolvedCurrency = currency?.code
+        ? currency
+        : (0, currencies_1.getCurrencyByCode)(user?.defaultCurrency?.code);
     const invoice = new Invoice_1.default({
         user,
         invoiceNumber,
@@ -39,6 +44,7 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         subtotal,
         taxTotal,
         total,
+        currency: resolvedCurrency,
     });
     await invoice.save();
     // Only save/update the customer record if the user opted in
@@ -345,5 +351,49 @@ exports.deletePayment = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         success: true,
         invoice,
         ...computed,
+    });
+});
+// @desc        Send a payment receipt email to the client
+// @route       POST /api/v1/invoices/:id/send-receipt
+// @access      Private
+exports.sendReceipt = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const invoice = await Invoice_1.default.findById(req.params.id);
+    if (!invoice)
+        return next(new errorHandler_1.default("Invoice not found", 404));
+    if (invoice.user.toString() !== req.user?._id.toString()) {
+        return next(new errorHandler_1.default("Not authorized to access this invoice", 403));
+    }
+    if (invoice.status !== "Paid") {
+        return next(new errorHandler_1.default("Receipts can only be sent for fully paid invoices", 400));
+    }
+    const { email } = req.body;
+    const recipientEmail = email || invoice.billTo?.email;
+    if (!recipientEmail) {
+        return next(new errorHandler_1.default("No recipient email available", 400));
+    }
+    const currencySymbol = invoice.currency?.symbol || "₦";
+    const lastPayment = invoice.payments[invoice.payments.length - 1];
+    const paymentDateStr = lastPayment?.date
+        ? new Date(lastPayment.date).toLocaleDateString()
+        : new Date().toLocaleDateString();
+    await (0, sendMail_1.default)({
+        email: recipientEmail,
+        subject: `Payment Receipt — Invoice ${invoice.invoiceNumber}`,
+        template: "send-receipt.ejs",
+        data: {
+            clientName: invoice.billTo?.clientName,
+            businessName: invoice.billFrom?.businessName,
+            invoiceNumber: invoice.invoiceNumber,
+            amount: `${currencySymbol}${(0, formatCurrency_1.addThousandsSeparator)(invoice.total ?? 0)}`,
+            paymentDate: paymentDateStr,
+            paymentMethod: lastPayment?.method || "N/A",
+        },
+    });
+    invoice.lastReceiptSentAt = new Date();
+    await invoice.save();
+    res.status(200).json({
+        success: true,
+        message: "Receipt sent successfully",
+        sentTo: recipientEmail,
     });
 });

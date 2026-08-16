@@ -34,6 +34,10 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
+const CurrencySchema = new mongoose_1.Schema({
+    code: { type: String, required: true },
+    symbol: { type: String, required: true },
+}, { _id: false });
 // Item schema definition
 const ItemSchema = new mongoose_1.Schema({
     name: {
@@ -90,6 +94,11 @@ const InvoiceSchema = new mongoose_1.Schema({
         type: Date,
         default: Date.now,
     },
+    currency: {
+        type: CurrencySchema,
+        required: true,
+        default: { code: "NGN", symbol: "₦" },
+    },
     dueDate: {
         type: Date,
     },
@@ -124,6 +133,9 @@ const InvoiceSchema = new mongoose_1.Schema({
     payments: {
         type: [PaymentSchema],
         default: [],
+    },
+    lastReceiptSentAt: {
+        type: Date,
     },
 }, { timestamps: true });
 // Export the model

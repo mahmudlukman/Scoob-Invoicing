@@ -13,6 +13,10 @@ userRouter.put("/update-user-password", auth_1.isAuthenticated, rateLimiter_1.up
 userRouter.get("/get-user/:id", user_controller_1.getUserById);
 userRouter.get("/get-users", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), rateLimiter_1.adminListLimiter, user_controller_1.getAllUsers);
 userRouter.put("/update-user-profile", auth_1.isAuthenticated, rateLimiter_1.uploadLimiter, user_controller_1.updateUserProfile);
+userRouter.patch("/update-default-currency", auth_1.isAuthenticated);
 userRouter.put("/update-user-status", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), user_controller_1.updateUserStatus);
 userRouter.delete("/delete-user/:id", auth_1.isAuthenticated, (0, auth_1.authorizeRoles)("admin"), user_controller_1.deleteUser);
+userRouter.delete("/delete-account", auth_1.isAuthenticated, user_controller_1.deleteAccount);
+userRouter.patch("/deactivate-account", auth_1.isAuthenticated, user_controller_1.deactivateAccount);
+userRouter.patch("/reactivate-account", auth_1.isAuthenticated, user_controller_1.reactivateAccount);
 exports.default = userRouter;
