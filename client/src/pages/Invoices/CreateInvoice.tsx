@@ -95,6 +95,11 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             taxPercent: item.taxPercent ?? 0,
           }),
         ) || baseData.items;
+
+      // NEW — respect the currency the AI parse actually used
+      if (aiData.currency) {
+        baseData.currency = aiData.currency;
+      }
     }
 
     return baseData;
@@ -107,6 +112,9 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   // Auto-fill form data if initialFormData changes asynchronously (e.g., when user profile loads)
   useEffect(() => {
     setFormData(initialFormData);
+    if (initialFormData.currency?.code) {
+      setCurrencyCode(initialFormData.currency.code);
+    }
   }, [initialFormData]);
 
   // Generate sequence invoice numbers based on existing records
@@ -736,14 +744,14 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             <div className="flex justify-between text-sm text-slate-600">
               <p>Subtotal:</p>
               <p>
-                {currencySymbol} 
+                {currencySymbol}
                 {formatCurrencyValue(subtotal)}
               </p>
             </div>
             <div className="flex justify-between text-sm text-slate-600">
               <p>Tax:</p>
               <p>
-                {currencySymbol} 
+                {currencySymbol}
                 {formatCurrencyValue(taxTotal)}
               </p>
             </div>

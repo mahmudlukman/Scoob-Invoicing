@@ -1,4 +1,4 @@
-import { rateLimit, ipKeyGenerator  } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
 // app-wide limiter — global backstop for all routes
 export const limiter = rateLimit({
@@ -16,8 +16,12 @@ export const loginLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  keyGenerator: (req) => `${ipKeyGenerator(req.ip || "")}:${req.body?.email || ""}`,
-  message: { status: 429, error: "Too many login attempts, please try again later." },
+  keyGenerator: (req) =>
+    `${ipKeyGenerator(req.ip || "")}:${req.body?.email || ""}`,
+  message: {
+    status: 429,
+    error: "Too many login attempts, please try again later.",
+  },
 });
 
 // Registration — prevent mass fake account / mail-bombing
@@ -47,7 +51,8 @@ export const forgotPasswordLimiter = rateLimit({
   max: 3,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req) => req.body?.email?.toLowerCase() || ipKeyGenerator(req.ip || ""),
+  keyGenerator: (req) =>
+    req.body?.email?.toLowerCase() || ipKeyGenerator(req.ip || ""),
   message: { status: 429, error: "Too many requests, please try again later." },
 });
 
@@ -75,7 +80,8 @@ export const updatePasswordLimiter = rateLimit({
   max: 5,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req: any) => req.user?._id?.toString() || req.ip,
+  keyGenerator: (req: any) =>
+    req.user?._id?.toString() || ipKeyGenerator(req.ip || ""),
   message: { status: 429, error: "Too many attempts, please try again later." },
 });
 
@@ -85,7 +91,8 @@ export const uploadLimiter = rateLimit({
   max: 10,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req: any) => req.user?._id?.toString() || req.ip,
+  keyGenerator: (req: any) =>
+    req.user?._id?.toString() || ipKeyGenerator(req.ip || ""),
   message: { status: 429, error: "Too many uploads, please try again later." },
 });
 
@@ -95,7 +102,8 @@ export const adminListLimiter = rateLimit({
   max: 20,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req: any) => req.user?._id?.toString() || req.ip,
+  keyGenerator: (req: any) =>
+    req.user?._id?.toString() || ipKeyGenerator(req.ip || ""),
   message: { status: 429, error: "Too many requests, please try again later." },
 });
 
@@ -105,7 +113,8 @@ export const invoiceWriteLimiter = rateLimit({
   max: 60,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req: any) => req.user?._id?.toString() || req.ip,
+  keyGenerator: (req: any) =>
+    req.user?._id?.toString() || ipKeyGenerator(req.ip || ""),
   message: {
     status: 429,
     error: "Too many requests, please try again later.",

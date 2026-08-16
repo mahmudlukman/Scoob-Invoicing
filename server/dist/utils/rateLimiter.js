@@ -18,7 +18,10 @@ exports.loginLimiter = (0, express_rate_limit_1.rateLimit)({
     legacyHeaders: false,
     skipSuccessfulRequests: true,
     keyGenerator: (req) => `${(0, express_rate_limit_1.ipKeyGenerator)(req.ip || "")}:${req.body?.email || ""}`,
-    message: { status: 429, error: "Too many login attempts, please try again later." },
+    message: {
+        status: 429,
+        error: "Too many login attempts, please try again later.",
+    },
 });
 // Registration — prevent mass fake account / mail-bombing
 exports.registerLimiter = (0, express_rate_limit_1.rateLimit)({
@@ -70,7 +73,7 @@ exports.updatePasswordLimiter = (0, express_rate_limit_1.rateLimit)({
     max: 5,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    keyGenerator: (req) => req.user?._id?.toString() || (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
     message: { status: 429, error: "Too many attempts, please try again later." },
 });
 // Cloudinary upload (inside updateUserProfile) — expensive, costs you money per call
@@ -79,7 +82,7 @@ exports.uploadLimiter = (0, express_rate_limit_1.rateLimit)({
     max: 10,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    keyGenerator: (req) => req.user?._id?.toString() || (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
     message: { status: 429, error: "Too many uploads, please try again later." },
 });
 // Admin listing/search — cheap-ish but DB-query heavy with regex search
@@ -88,7 +91,7 @@ exports.adminListLimiter = (0, express_rate_limit_1.rateLimit)({
     max: 20,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    keyGenerator: (req) => req.user?._id?.toString() || (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
     message: { status: 429, error: "Too many requests, please try again later." },
 });
 // Invoice writes (create/update/duplicate) — moderate cost, prevent spam-creation
@@ -97,7 +100,7 @@ exports.invoiceWriteLimiter = (0, express_rate_limit_1.rateLimit)({
     max: 60,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    keyGenerator: (req) => req.user?._id?.toString() || (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
     message: {
         status: 429,
         error: "Too many requests, please try again later.",

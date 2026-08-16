@@ -10,15 +10,21 @@ const generative_ai_1 = require("@google/generative-ai");
 const config_1 = __importDefault(require("../config"));
 const Invoice_1 = __importDefault(require("../models/Invoice"));
 const sendMail_1 = __importDefault(require("../utils/sendMail"));
+const currencies_1 = require("../utils/currencies");
+const formatCurrency_1 = require("../utils/formatCurrency");
 const ai = new generative_ai_1.GoogleGenerativeAI(config_1.default.GEMINI_API_KEY);
 exports.parseInvoiceFromText = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const { text } = req.body;
     if (!text) {
         return next(new errorHandler_1.default("Text is required", 400));
     }
+    const userCurrency = (0, currencies_1.getCurrencyByCode)(req.user?.defaultCurrency?.code);
     const prompt = `You are an expert invoice data extraction AI. Analyze the following text and extract the relevant information to create an invoice.
         The output MUST be a valid JSON object.
-        
+
+        Assume all monetary amounts mentioned in the text are in ${userCurrency.name} (${userCurrency.code}), unless the text explicitly states a different currency.
+        Extract "unitPrice" as a plain numeric value only — no currency symbols, no commas, no letters. For example, "$1,200.50" or "₦1,200.50" should be extracted as 1200.5.
+
         The JSON object should have the following structure:
         {
             "clientName": "string",
@@ -38,7 +44,7 @@ exports.parseInvoiceFromText = (0, catchAsyncErrors_1.catchAsyncError)(async (re
         ${text}
         ---- TEXT END ----
         
-        Extract the data and provide only the JSON object. Make the currency in Nigerian Naira (₦).`;
+        Extract the data and provide only the JSON object.`;
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     let responseText = result.response.text;
@@ -53,7 +59,33 @@ exports.parseInvoiceFromText = (0, catchAsyncErrors_1.catchAsyncError)(async (re
         .replace(/```/g, "")
         .trim();
     const parsedData = JSON.parse(cleanedJson);
-    res.status(200).json(parsedData);
+    // Defensive sanitation — strip any currency symbols/commas the AI might
+    // still slip into a numeric field, and coerce to a real number.
+    const sanitizeAmount = (value) => {
+        if (typeof value === "number")
+            return value;
+        if (typeof value === "string") {
+            const cleaned = value.replace(/[^0-9.-]/g, "");
+            const parsed = parseFloat(cleaned);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+    };
+    if (Array.isArray(parsedData.items)) {
+        parsedData.items = parsedData.items.map((item) => ({
+            ...item,
+            unitPrice: sanitizeAmount(item.unitPrice),
+            quantity: typeof item.quantity === "number"
+                ? item.quantity
+                : sanitizeAmount(item.quantity) || 1,
+        }));
+    }
+    // Let the frontend know which currency these amounts were interpreted in,
+    // so CreateInvoice's currency selector can default to it rather than NGN.
+    res.status(200).json({
+        ...parsedData,
+        currency: { code: userCurrency.code, symbol: userCurrency.symbol },
+    });
 });
 exports.generateReminderEmail = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const { invoiceId } = req.body;
@@ -67,15 +99,17 @@ exports.generateReminderEmail = (0, catchAsyncErrors_1.catchAsyncError)(async (r
     const dueDateStr = invoice.dueDate
         ? new Date(invoice.dueDate).toLocaleDateString()
         : "N/A";
+    const currencySymbol = invoice.currency?.symbol || "₦";
+    const amountDueStr = `${currencySymbol}${(0, formatCurrency_1.addThousandsSeparator)(invoice.total ?? 0)}`;
     const prompt = ` You are a professional and polite accounting assistant. Write a friendly reminder email to a client about an overdue or upcoming invoice payment.
         
         Use the following details to personalize the email:
         - Client Name: ${invoice.billTo.clientName}
         - Invoice Number: ${invoice.invoiceNumber}
-        - Amount Due: ${(invoice.total ?? 0).toFixed(2)}
+        - Amount Due: ${amountDueStr}
         - Due Date: ${dueDateStr}
         
-        The tone should be friendly but clear. Keep it concise. Make the currency in Nigerian Naira (₦). Start the email with "Subject: ".`;
+        The tone should be friendly but clear. Keep it concise. Start the email with "Subject: ".`;
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     res.status(200).json({ reminderText: result.response.text() });
@@ -113,7 +147,7 @@ exports.sendReminderEmail = (0, catchAsyncErrors_1.catchAsyncError)(async (req, 
     res.status(200).json({
         success: true,
         message: "Reminder email sent successfully",
-        sentTo: invoice.billTo.email
+        sentTo: invoice.billTo.email,
     });
 });
 exports.getDashboardSummary = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {

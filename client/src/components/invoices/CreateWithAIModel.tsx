@@ -1,11 +1,13 @@
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import TextareaField from "../ui/TextareaField";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
 import { toast } from "react-hot-toast";
 import { useParseInvoiceFromTextMutation } from "../../redux/features/ai/aiApi";
+import type { RootState } from "../../@types";
 
 interface CreateWithAIModelProps {
   isOpen: boolean;
@@ -15,7 +17,10 @@ interface CreateWithAIModelProps {
 const CreateWithAIModel = ({ isOpen, onClose }: CreateWithAIModelProps) => {
   const [text, setText] = useState("");
   const navigate = useNavigate();
-  
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  const currencySymbol = user?.defaultCurrency?.symbol || "₦";
+
   const [parseInvoice, { isLoading }] = useParseInvoiceFromTextMutation();
 
   const handleGenerate = async () => {
@@ -38,11 +43,7 @@ const CreateWithAIModel = ({ isOpen, onClose }: CreateWithAIModelProps) => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Create Invoice with AI"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Invoice with AI">
       <div className="p-6 space-y-4">
         <div className="flex items-center mb-2">
           <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
@@ -58,7 +59,7 @@ const CreateWithAIModel = ({ isOpen, onClose }: CreateWithAIModelProps) => {
           label="Paste Invoice Text Here"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="e.g., 'Invoice for ClientCorp: 2 hours of design work at ₦1500/hr and one logo for ₦5000'"
+          placeholder={`e.g., 'Invoice for ClientCorp: 2 hours of design work at ${currencySymbol}1500/hr and one logo for ${currencySymbol}5000'`}
           rows={8}
         />
 

@@ -5,6 +5,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import config from "../config";
 import Invoice from "../models/Invoice";
 import sendMail from "../utils/sendMail";
+import { getCurrencyByCode } from "../utils/currencies";
+import { addThousandsSeparator } from "../utils/formatCurrency";
 
 const ai = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 
@@ -15,9 +17,15 @@ export const parseInvoiceFromText = catchAsyncError(
     if (!text) {
       return next(new ErrorHandler("Text is required", 400));
     }
+
+    const userCurrency = getCurrencyByCode(req.user?.defaultCurrency?.code);
+
     const prompt = `You are an expert invoice data extraction AI. Analyze the following text and extract the relevant information to create an invoice.
         The output MUST be a valid JSON object.
-        
+
+        Assume all monetary amounts mentioned in the text are in ${userCurrency.name} (${userCurrency.code}), unless the text explicitly states a different currency.
+        Extract "unitPrice" as a plain numeric value only — no currency symbols, no commas, no letters. For example, "$1,200.50" or "₦1,200.50" should be extracted as 1200.5.
+
         The JSON object should have the following structure:
         {
             "clientName": "string",
@@ -37,7 +45,7 @@ export const parseInvoiceFromText = catchAsyncError(
         ${text}
         ---- TEXT END ----
         
-        Extract the data and provide only the JSON object. Make the currency in Nigerian Naira (₦).`;
+        Extract the data and provide only the JSON object.`;
 
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -59,8 +67,36 @@ export const parseInvoiceFromText = catchAsyncError(
 
     const parsedData = JSON.parse(cleanedJson);
 
-    res.status(200).json(parsedData);
-  }
+    // Defensive sanitation — strip any currency symbols/commas the AI might
+    // still slip into a numeric field, and coerce to a real number.
+    const sanitizeAmount = (value: unknown): number => {
+      if (typeof value === "number") return value;
+      if (typeof value === "string") {
+        const cleaned = value.replace(/[^0-9.-]/g, "");
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    };
+
+    if (Array.isArray(parsedData.items)) {
+      parsedData.items = parsedData.items.map((item: any) => ({
+        ...item,
+        unitPrice: sanitizeAmount(item.unitPrice),
+        quantity:
+          typeof item.quantity === "number"
+            ? item.quantity
+            : sanitizeAmount(item.quantity) || 1,
+      }));
+    }
+
+    // Let the frontend know which currency these amounts were interpreted in,
+    // so CreateInvoice's currency selector can default to it rather than NGN.
+    res.status(200).json({
+      ...parsedData,
+      currency: { code: userCurrency.code, symbol: userCurrency.symbol },
+    });
+  },
 );
 
 export const generateReminderEmail = catchAsyncError(
@@ -80,22 +116,25 @@ export const generateReminderEmail = catchAsyncError(
       ? new Date(invoice.dueDate).toLocaleDateString()
       : "N/A";
 
+    const currencySymbol = invoice.currency?.symbol || "₦";
+    const amountDueStr = `${currencySymbol}${addThousandsSeparator(invoice.total ?? 0)}`;
+
     const prompt = ` You are a professional and polite accounting assistant. Write a friendly reminder email to a client about an overdue or upcoming invoice payment.
         
         Use the following details to personalize the email:
         - Client Name: ${invoice.billTo.clientName}
         - Invoice Number: ${invoice.invoiceNumber}
-        - Amount Due: ${(invoice.total ?? 0).toFixed(2)}
+        - Amount Due: ${amountDueStr}
         - Due Date: ${dueDateStr}
         
-        The tone should be friendly but clear. Keep it concise. Make the currency in Nigerian Naira (₦). Start the email with "Subject: ".`;
+        The tone should be friendly but clear. Keep it concise. Start the email with "Subject: ".`;
 
     const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(prompt);
 
     res.status(200).json({ reminderText: result.response.text() });
-  }
+  },
 );
 
 // Send the reminder email (separate endpoint for actual sending)
@@ -104,11 +143,13 @@ export const sendReminderEmail = catchAsyncError(
     const { invoiceId, subject, body } = req.body;
 
     if (!invoiceId || !subject || !body) {
-      return next(new ErrorHandler("Invoice ID, subject, and body are required", 400));
+      return next(
+        new ErrorHandler("Invoice ID, subject, and body are required", 400),
+      );
     }
 
     const invoice = await Invoice.findById(invoiceId);
-    
+
     if (!invoice) {
       return next(new ErrorHandler("Invoice not found", 404));
     }
@@ -136,12 +177,12 @@ export const sendReminderEmail = catchAsyncError(
       },
     });
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: "Reminder email sent successfully",
-      sentTo: invoice.billTo.email
+      sentTo: invoice.billTo.email,
     });
-  }
+  },
 );
 
 export const getDashboardSummary = catchAsyncError(
@@ -161,11 +202,11 @@ export const getDashboardSummary = catchAsyncError(
     const unpaidInvoices = invoices.filter((inv) => inv.status !== "Paid");
     const totalRevenue = paidInvoices.reduce(
       (acc, inv) => acc + (inv.total ?? 0),
-      0
+      0,
     );
     const totalOutStanding = unpaidInvoices.reduce(
       (acc, inv) => acc + (inv.total ?? 0),
-      0
+      0,
     );
 
     const dataSummary = `
@@ -174,15 +215,15 @@ export const getDashboardSummary = catchAsyncError(
         - Total unpaid/pending invoices: ${unpaidInvoices.length}
         - Total revenue from paid invoices: ${totalRevenue.toFixed(2)}
         - Total outstanding amount from unpaid/pending invoices: ${totalOutStanding.toFixed(
-          2
+          2,
         )}
         - Recent invoices (last 5): ${invoices
           .slice(0, 5)
           .map(
             (inv) =>
               `Invoice #${inv.invoiceNumber} for ${(inv.total ?? 0).toFixed(
-                2
-              )} with status ${inv.status}`
+                2,
+              )} with status ${inv.status}`,
           )
           .join(", ")}`;
 
@@ -210,5 +251,5 @@ export const getDashboardSummary = catchAsyncError(
     const parsedData = JSON.parse(cleanedJson);
 
     res.status(200).json(parsedData);
-  }
+  },
 );
