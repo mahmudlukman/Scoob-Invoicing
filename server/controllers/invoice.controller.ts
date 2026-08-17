@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
+import mongoose from "mongoose";
 import { catchAsyncError } from "../middleware/catchAsyncErrors";
-import User from "../models/User";
 import ErrorHandler from "../utils/errorHandler";
 import Invoice, { IItem } from "../models/Invoice";
 import Customer from "../models/Customer";
@@ -11,6 +11,93 @@ import {
 import { getCurrencyByCode } from "../utils/currencies";
 import sendMail from "../utils/sendMail";
 import { addThousandsSeparator } from "../utils/formatCurrency";
+import User from "../models/User";
+
+// --------------------------------------------------
+// Shared helpers
+// --------------------------------------------------
+
+interface ComputedTotals {
+  subtotal: number;
+  taxTotal: number;
+  total: number;
+}
+
+const validateAndComputeTotals = (
+  items: IItem[],
+  next: NextFunction,
+): ComputedTotals | null => {
+  if (!Array.isArray(items) || items.length === 0) {
+    next(new ErrorHandler("At least one item is required", 400));
+    return null;
+  }
+
+  let subtotal = 0;
+  let taxTotal = 0;
+
+  for (const item of items) {
+    const unitPrice = Number(item.unitPrice);
+    const quantity = Number(item.quantity);
+    const taxPercent =
+      item.taxPercent !== undefined ? Number(item.taxPercent) : 0;
+
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      next(
+        new ErrorHandler(
+          "Each item must have a valid, non-negative unit price",
+          400,
+        ),
+      );
+      return null;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      next(
+        new ErrorHandler("Each item must have a quantity greater than 0", 400),
+      );
+      return null;
+    }
+    if (!Number.isFinite(taxPercent) || taxPercent < 0 || taxPercent > 100) {
+      next(new ErrorHandler("Tax percent must be between 0 and 100", 400));
+      return null;
+    }
+
+    subtotal += unitPrice * quantity;
+    taxTotal += (unitPrice * quantity * taxPercent) / 100;
+  }
+
+  return { subtotal, taxTotal, total: subtotal + taxTotal };
+};
+
+const resolveCurrency = (
+  clientCurrency: { code?: string } | undefined,
+  defaultCode: string | undefined,
+  next: NextFunction,
+) => {
+  const codeToResolve = clientCurrency?.code || defaultCode;
+  try {
+    return getCurrencyByCode(codeToResolve);
+  } catch (error) {
+    next(new ErrorHandler("Invalid or missing currency code", 400));
+    return null;
+  }
+};
+
+const assertInvoiceOwner = (
+  invoiceUserId: mongoose.Types.ObjectId | { toString(): string },
+  requestUserId: mongoose.Types.ObjectId | { toString(): string } | undefined,
+  next: NextFunction,
+  action: "access" | "update",
+): boolean => {
+  if (invoiceUserId.toString() !== requestUserId?.toString()) {
+    next(new ErrorHandler(`Not authorized to ${action} this invoice`, 403));
+    return false;
+  }
+  return true;
+};
+
+// --------------------------------------------------
+// Create invoice
+// --------------------------------------------------
 
 // @desc        Create new Invoice
 // @route       POST /api/v1/create-invoice
@@ -31,23 +118,18 @@ export const createInvoice = catchAsyncError(
       currency,
     } = req.body;
 
-    //  subtotal calculation
-    let subtotal = 0;
-    let taxTotal = 0;
-    items.forEach((item: IItem) => {
-      subtotal += item.unitPrice * item.quantity;
-      taxTotal +=
-        (item.unitPrice * item.quantity * (item.taxPercent || 0)) / 100;
-    });
+    const totals = validateAndComputeTotals(items, next);
+    if (!totals) return;
 
-    const total = subtotal + taxTotal;
-
-    const resolvedCurrency = currency?.code
-      ? currency
-      : getCurrencyByCode(user?.defaultCurrency?.code);
+    const resolvedCurrency = resolveCurrency(
+      currency,
+      user?.defaultCurrency?.code,
+      next,
+    );
+    if (!resolvedCurrency) return;
 
     const invoice = new Invoice({
-      user,
+      user: user?._id,
       invoiceNumber,
       invoiceDate,
       dueDate,
@@ -56,9 +138,9 @@ export const createInvoice = catchAsyncError(
       items,
       notes,
       paymentTerms,
-      subtotal,
-      taxTotal,
-      total,
+      subtotal: totals.subtotal,
+      taxTotal: totals.taxTotal,
+      total: totals.total,
       currency: resolvedCurrency,
     });
 
@@ -99,16 +181,30 @@ export const createInvoice = catchAsyncError(
   },
 );
 
+// --------------------------------------------------
+// Get invoices
+// --------------------------------------------------
+
 // @desc        Get all invoices of logged-in user
 // @route       GET /api/v1/invoices
 // @access      Private
 export const getInvoices = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const user = await User.findById(req.user?._id);
-    const invoices = await Invoice.find({ user }).populate(
-      "user",
-      "name email",
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(req.query.pageSize as string) || 20),
     );
+    const skipAmount = (page - 1) * pageSize;
+
+    const [invoices, totalInvoices] = await Promise.all([
+      Invoice.find({ user: req.user?._id })
+        .populate("user", "name email")
+        .skip(skipAmount)
+        .limit(pageSize)
+        .sort({ createdAt: -1 }),
+      Invoice.countDocuments({ user: req.user?._id }),
+    ]);
 
     const invoicesWithComputed = invoices.map((invoice) => {
       const computed = getInvoiceComputedFields(invoice);
@@ -118,6 +214,12 @@ export const getInvoices = catchAsyncError(
     res.status(200).json({
       success: true,
       invoices: invoicesWithComputed,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalItems: totalInvoices,
+        totalPages: Math.ceil(totalInvoices / pageSize),
+      },
     });
   },
 );
@@ -127,6 +229,10 @@ export const getInvoices = catchAsyncError(
 // @access      Private
 export const getInvoiceById = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
     const invoice = await Invoice.findById(req.params.id).populate(
       "user",
       "name email",
@@ -134,11 +240,8 @@ export const getInvoiceById = catchAsyncError(
 
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
-    if (invoice.user._id.toString() !== req.user?._id.toString()) {
-      return next(
-        new ErrorHandler("Not authorized to access this invoice", 403),
-      );
-    }
+    if (!assertInvoiceOwner(invoice.user._id, req.user?._id, next, "access"))
+      return;
 
     const computed = getInvoiceComputedFields(invoice);
 
@@ -148,11 +251,20 @@ export const getInvoiceById = catchAsyncError(
     });
   },
 );
+
+// --------------------------------------------------
+// Update invoice
+// --------------------------------------------------
+
 // @desc        Update invoice
 // @route       PUT /api/v1/update-invoice/:id
 // @access      Private
 export const updateInvoice = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
     const {
       invoiceNumber,
       invoiceDate,
@@ -168,28 +280,17 @@ export const updateInvoice = catchAsyncError(
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-    if (invoice.user.toString() !== req.user?._id.toString()) {
-      return next(
-        new ErrorHandler("Not authorized to update this invoice", 403),
-      );
-    }
+    if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
+      return;
 
     // Only recalculate totals if items were actually sent
     let totalsUpdate = {};
     if (items && items.length > 0) {
-      let subtotal = 0;
-      let taxTotal = 0;
-      items.forEach((item: IItem) => {
-        subtotal += item.unitPrice * item.quantity;
-        taxTotal +=
-          (item.unitPrice * item.quantity * (item.taxPercent || 0)) / 100;
-      });
-      const total = subtotal + taxTotal;
-      totalsUpdate = { items, subtotal, taxTotal, total };
+      const totals = validateAndComputeTotals(items, next);
+      if (!totals) return;
+      totalsUpdate = { items, ...totals };
     }
 
-    // Handle manual status changes from the quick-toggle button (no `items` sent alongside).
-    // This keeps `payments` as the source of truth so amountPaid/status never drift apart.
     if (status !== undefined && !items) {
       const currentAmountPaid = invoice.payments.reduce(
         (sum, p) => sum + p.amount,
@@ -206,8 +307,6 @@ export const updateInvoice = catchAsyncError(
           note: "Marked as paid manually",
         });
       } else if (status === "Unpaid") {
-        // Reversing to Unpaid only makes sense if there's no real payment history yet.
-        // If payments exist, block this — the user should remove individual payments instead.
         if (invoice.payments.length > 0) {
           return next(
             new ErrorHandler(
@@ -230,8 +329,6 @@ export const updateInvoice = catchAsyncError(
       ...totalsUpdate,
     });
 
-    // Recompute status from actual payment total rather than trusting the raw `status` field,
-    // unless it's explicitly "Pending" which is a manual/non-payment-driven state.
     const amountPaidAfter = invoice.payments.reduce(
       (sum, p) => sum + p.amount,
       0,
@@ -256,17 +353,28 @@ export const updateInvoice = catchAsyncError(
   },
 );
 
+// --------------------------------------------------
+// Duplicate invoice
+// --------------------------------------------------
+
 // @desc        Duplicate an invoice
 // @route       POST /api/v1/duplicate-invoice/:id
 // @access      Private
 export const duplicateInvoice = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
     const original = await Invoice.findById(req.params.id);
 
     if (!original) return next(new ErrorHandler("Invoice not found", 404));
 
+    if (!assertInvoiceOwner(original.user, req.user?._id, next, "access"))
+      return;
+
     // Find all invoices for this user to determine the next number
-    const userInvoices = await Invoice.find({ user: req.user }).select(
+    const userInvoices = await Invoice.find({ user: req.user?._id }).select(
       "invoiceNumber",
     );
 
@@ -289,7 +397,7 @@ export const duplicateInvoice = catchAsyncError(
       prefix + String(maxNumber + 1).padStart(padLength, "0");
 
     const duplicate = new Invoice({
-      user: req.user,
+      user: req.user?._id,
       invoiceNumber: newInvoiceNumber,
       invoiceDate: new Date(),
       dueDate: original.dueDate,
@@ -313,6 +421,10 @@ export const duplicateInvoice = catchAsyncError(
   },
 );
 
+// --------------------------------------------------
+// Invoice preferences
+// --------------------------------------------------
+
 // @desc    Update invoice preferences
 // @route   PATCH /api/v1/update-invoice-preferences
 // @access  Private
@@ -320,10 +432,36 @@ export const updateInvoicePreferences = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const { templateId, paletteId, colorPalette } = req.body;
 
+    const updates: Record<string, unknown> = {};
+    if (templateId !== undefined)
+      updates["invoicePreferences.templateId"] = templateId;
+
+    if (paletteId !== undefined)
+      updates["invoicePreferences.paletteId"] = paletteId;
+
+    if (colorPalette !== undefined) {
+      if (colorPalette.primary !== undefined) {
+        updates["invoicePreferences.colorPalette.primary"] =
+          colorPalette.primary;
+      }
+      if (colorPalette.secondary !== undefined) {
+        updates["invoicePreferences.colorPalette.secondary"] =
+          colorPalette.secondary;
+      }
+      if (colorPalette.background !== undefined) {
+        updates["invoicePreferences.colorPalette.background"] =
+          colorPalette.background;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return next(new ErrorHandler("No preferences provided to update", 400));
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user?._id,
-      { invoicePreferences: { templateId, paletteId, colorPalette } },
-      { new: true },
+      { $set: updates },
+      { new: true, runValidators: true },
     );
 
     if (!user) return next(new ErrorHandler("User not found", 404));
@@ -333,6 +471,10 @@ export const updateInvoicePreferences = catchAsyncError(
       .json({ success: true, invoicePreferences: user.invoicePreferences });
   },
 );
+
+// --------------------------------------------------
+// Income by month
+// --------------------------------------------------
 
 // @desc        Get income by month for logged-in user (paid invoices only, calendar year)
 // @route       GET /api/v1/income-by-month
@@ -345,8 +487,8 @@ export const getIncomeByMonth = catchAsyncError(
     const currentYear = now.getFullYear();
     const year = Number(req.query.year) || currentYear;
 
-    const startDate = new Date(year, 0, 1); // Jan 1, 00:00
-    const endDate = new Date(year + 1, 0, 1); // Jan 1 of next year (exclusive upper bound)
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year + 1, 0, 1);
 
     const rawIncomeByMonth = await Invoice.aggregate([
       {
@@ -381,7 +523,6 @@ export const getIncomeByMonth = catchAsyncError(
     });
 
     // If it's the current year, only show up to the current month.
-    // Past years always show all 12 months (they've fully happened).
     const monthsToShow = year === currentYear ? now.getMonth() + 1 : 12;
 
     const incomeByMonth = Array.from({ length: monthsToShow }, (_, i) => {
@@ -402,22 +543,44 @@ export const getIncomeByMonth = catchAsyncError(
   },
 );
 
+// --------------------------------------------------
+// Delete invoice
+// --------------------------------------------------
+
 // @desc        Delete invoice
 // @route       DELETE /api/v1/delete-invoice/:id
 // @access      Private
 export const deleteInvoice = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const invoice = await Invoice.findByIdAndDelete(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
+    const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+    if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
+      return;
+
+    await invoice.deleteOne();
+
     res.json({ message: "Invoice deleted successfully" });
   },
 );
+
+// --------------------------------------------------
+// Payments
+// --------------------------------------------------
 
 // @desc        Add a payment to an invoice
 // @route       POST /api/v1/invoices/:id/payments
 // @access      Private
 export const addPayment = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
     const { amount, date, method, note } = req.body;
 
     if (!amount || amount <= 0) {
@@ -429,11 +592,8 @@ export const addPayment = catchAsyncError(
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
-    if (invoice.user.toString() !== req.user?._id.toString()) {
-      return next(
-        new ErrorHandler("Not authorized to update this invoice", 403),
-      );
-    }
+    if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
+      return;
 
     invoice.payments.push({
       amount,
@@ -466,14 +626,18 @@ export const addPayment = catchAsyncError(
 // @access      Private
 export const deletePayment = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (
+      !mongoose.Types.ObjectId.isValid(req.params.id) ||
+      !mongoose.Types.ObjectId.isValid(req.params.paymentId)
+    ) {
+      return next(new ErrorHandler("Invalid invoice or payment id", 400));
+    }
+
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
-    if (invoice.user.toString() !== req.user?._id.toString()) {
-      return next(
-        new ErrorHandler("Not authorized to update this invoice", 403),
-      );
-    }
+    if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
+      return;
 
     const paymentExists = invoice.payments.some(
       (p) => p._id?.toString() === req.params.paymentId,
@@ -505,19 +669,24 @@ export const deletePayment = catchAsyncError(
   },
 );
 
+// --------------------------------------------------
+// Receipts
+// --------------------------------------------------
+
 // @desc        Send a payment receipt email to the client
 // @route       POST /api/v1/invoices/:id/send-receipt
 // @access      Private
 export const sendReceipt = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid invoice id", 400));
+    }
+
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
-    if (invoice.user.toString() !== req.user?._id.toString()) {
-      return next(
-        new ErrorHandler("Not authorized to access this invoice", 403),
-      );
-    }
+    if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "access"))
+      return;
 
     if (invoice.status !== "Paid") {
       return next(

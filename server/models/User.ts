@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import config from "../config";
 
-enum UserRole {
+export enum UserRole {
   USER = "user",
   ADMIN = "admin",
 }
@@ -34,9 +34,11 @@ export interface IUser extends Document {
   address: string;
   defaultCurrency?: { code: string; symbol: string };
   phone: string;
-  role: string;
+  role: UserRole;
   isActive?: boolean;
+  suspendedByAdmin?: boolean;
   invoicePreferences: InvoicePreferences;
+  passwordChangedAt?: Date;
   resetPasswordToken?: string;
   resetPasswordTime?: Date;
   getJwtToken(): string;
@@ -49,11 +51,15 @@ const UserSchema: Schema<IUser> = new Schema(
     name: {
       type: String,
       required: [true, "Please enter your name!"],
+      trim: true,
     },
     email: {
       type: String,
       required: [true, "Please enter your email!"],
       unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter a valid email"],
     },
     password: {
       type: String,
@@ -63,6 +69,7 @@ const UserSchema: Schema<IUser> = new Schema(
     businessName: {
       type: String,
       default: "",
+      trim: true,
     },
     businessLogo: {
       public_id: {
@@ -75,6 +82,7 @@ const UserSchema: Schema<IUser> = new Schema(
     address: {
       type: String,
       default: "",
+      trim: true,
     },
     defaultCurrency: {
       code: { type: String, default: "NGN" },
@@ -83,6 +91,7 @@ const UserSchema: Schema<IUser> = new Schema(
     phone: {
       type: String,
       default: "",
+      trim: true,
     },
     role: {
       type: String,
@@ -93,6 +102,10 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Boolean,
       default: true,
     },
+    suspendedByAdmin: {
+      type: Boolean,
+      default: false,
+    },
     invoicePreferences: {
       templateId: { type: String, default: "01" },
       paletteId: { type: String, default: "green" },
@@ -102,6 +115,7 @@ const UserSchema: Schema<IUser> = new Schema(
         background: { type: String, default: "#F0FDF4" },
       },
     },
+    passwordChangedAt: Date,
     resetPasswordToken: String,
     resetPasswordTime: Date,
   },
@@ -110,10 +124,16 @@ const UserSchema: Schema<IUser> = new Schema(
 
 // Hash password
 UserSchema.pre<IUser>("save", async function (next) {
-  if (!this.isModified("password")) {
-    next();
+  if (!this.isModified("password") || this.$locals.skipHash) {
+    return next();
   }
+
   this.password = await bcrypt.hash(this.password, 10);
+
+  if (!this.isNew) {
+    this.passwordChangedAt = new Date();
+  }
+
   next();
 });
 
@@ -138,5 +158,5 @@ UserSchema.methods.comparePassword = async function (
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-export const User: Model<IUser> = mongoose.model("User", UserSchema);
+export const User: Model<IUser> = mongoose.model<IUser>("User", UserSchema);
 export default User;

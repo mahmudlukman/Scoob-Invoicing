@@ -1,15 +1,44 @@
 import { NextFunction, Request, Response } from "express";
-import { catchAsyncError } from "../middleware/catchAsyncErrors";
-import User, { IUser } from "../models/User";
-import ErrorHandler from "../utils/errorHandler";
+import mongoose, { FilterQuery } from "mongoose";
 import cloudinary from "cloudinary";
-import { FilterQuery } from "mongoose";
+import { catchAsyncError } from "../middleware/catchAsyncErrors";
+import User, { IUser, UserRole } from "../models/User";
+import ErrorHandler from "../utils/errorHandler";
 import { getCurrencyByCode } from "../utils/currencies";
 import Invoice from "../models/Invoice";
 import Customer from "../models/Customer";
+import { accessTokenOptions, refreshTokenOptions } from "../utils/jwtToken";
+
+const MIN_PASSWORD_LENGTH = 6;
+const MAX_PASSWORD_LENGTH = 20;
+
+const NAME_MAX_LENGTH = 100;
+const BUSINESS_NAME_MAX_LENGTH = 200;
+const ADDRESS_MAX_LENGTH = 500;
+const PHONE_MAX_LENGTH = 20;
+
+const ALLOWED_SORT_FIELDS = ["createdAt", "name", "email", "role", "isActive"];
+
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const clearAuthCookies = (res: Response) => {
+  res.cookie("access_token", "", {
+    maxAge: 1,
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+  });
+  res.cookie("refresh_token", "", {
+    maxAge: 1,
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+  });
+};
 
 // @desc       get logged in user
-// @route      PUT /api/v1/me
+// @route      GET /api/v1/me
 // @access     Private
 export const getMe = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -54,30 +83,88 @@ export const updateUserProfile = catchAsyncError(
       return next(new ErrorHandler("User not found", 404));
     }
 
-    // Build update object dynamically
     const updates: Partial<IUser> = {};
-    if (name) updates.name = name;
-    if (businessName) updates.businessName = businessName;
-    if (address) updates.address = address;
-    if (phone) updates.phone = phone;
-    if (defaultCurrency) {
-      const currency = getCurrencyByCode(defaultCurrency.code);
-      updates.defaultCurrency = {
-        code: currency.code,
-        symbol: currency.symbol,
-      };
+
+    if (name) {
+      const trimmedName = name.trim();
+      if (trimmedName.length > NAME_MAX_LENGTH) {
+        return next(
+          new ErrorHandler(
+            `Name must be under ${NAME_MAX_LENGTH} characters`,
+            400,
+          ),
+        );
+      }
+      updates.name = trimmedName;
     }
 
-    // Handle logo upload separately (requires deletion logic)
+    if (businessName) {
+      const trimmed = businessName.trim();
+      if (trimmed.length > BUSINESS_NAME_MAX_LENGTH) {
+        return next(
+          new ErrorHandler(
+            `Business name must be under ${BUSINESS_NAME_MAX_LENGTH} characters`,
+            400,
+          ),
+        );
+      }
+      updates.businessName = trimmed;
+    }
+
+    if (address) {
+      const trimmed = address.trim();
+      if (trimmed.length > ADDRESS_MAX_LENGTH) {
+        return next(
+          new ErrorHandler(
+            `Address must be under ${ADDRESS_MAX_LENGTH} characters`,
+            400,
+          ),
+        );
+      }
+      updates.address = trimmed;
+    }
+
+    if (phone) {
+      const trimmed = phone.trim();
+      if (trimmed.length > PHONE_MAX_LENGTH) {
+        return next(
+          new ErrorHandler(
+            `Phone must be under ${PHONE_MAX_LENGTH} characters`,
+            400,
+          ),
+        );
+      }
+      updates.phone = trimmed;
+    }
+
+    if (defaultCurrency) {
+      try {
+        const currency = getCurrencyByCode(defaultCurrency.code);
+        updates.defaultCurrency = {
+          code: currency.code,
+          symbol: currency.symbol,
+        };
+      } catch (error) {
+        return next(new ErrorHandler("Invalid currency code", 400));
+      }
+    }
+
     if (businessLogo) {
-      if (user.businessLogo?.public_id) {
-        await cloudinary.v2.uploader.destroy(user.businessLogo.public_id);
+      let myCloud;
+      try {
+        myCloud = await cloudinary.v2.uploader.upload(businessLogo, {
+          folder: "businessLogo",
+          width: 150,
+        });
+      } catch (error) {
+        return next(new ErrorHandler("Failed to upload business logo", 500));
       }
 
-      const myCloud = await cloudinary.v2.uploader.upload(businessLogo, {
-        folder: "businessLogo",
-        width: 150,
-      });
+      if (user.businessLogo?.public_id) {
+        await cloudinary.v2.uploader
+          .destroy(user.businessLogo.public_id)
+          .catch(() => {});
+      }
 
       updates.businessLogo = {
         public_id: myCloud.public_id,
@@ -85,7 +172,6 @@ export const updateUserProfile = catchAsyncError(
       };
     }
 
-    // Update all fields at once
     const updatedUser = await User.findByIdAndUpdate(
       req.user?._id,
       { $set: updates },
@@ -112,20 +198,32 @@ export const updatePassword = catchAsyncError(
       return next(new ErrorHandler("Please enter old and new password", 400));
     }
 
+    const trimmedNewPassword = newPassword.trim();
+
+    if (
+      trimmedNewPassword.length < MIN_PASSWORD_LENGTH ||
+      trimmedNewPassword.length > MAX_PASSWORD_LENGTH
+    ) {
+      return next(
+        new ErrorHandler(
+          `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters!`,
+          400,
+        ),
+      );
+    }
+
     const user = await User.findById(req.user?._id).select("+password");
 
     if (user?.password === undefined) {
       return next(new ErrorHandler("Invalid user", 400));
     }
 
-    // Verify the old password is correct
     const isOldPasswordValid = await user.comparePassword(oldPassword);
     if (!isOldPasswordValid) {
       return next(new ErrorHandler("Old password is incorrect", 400));
     }
 
-    // Check if new password is different from current password
-    const isSamePassword = await user.comparePassword(newPassword);
+    const isSamePassword = await user.comparePassword(trimmedNewPassword);
     if (isSamePassword) {
       return next(
         new ErrorHandler(
@@ -135,32 +233,39 @@ export const updatePassword = catchAsyncError(
       );
     }
 
-    if (newPassword.trim().length < 6 || newPassword.trim().length > 20) {
-      return next(
-        new ErrorHandler(
-          "Password must be at least 6 characters and no more than 20 characters!",
-          400,
-        ),
-      );
-    }
-
-    user.password = newPassword.trim();
+    user.password = trimmedNewPassword;
     await user.save();
+
+    const newAccessToken = user.getJwtToken();
+    const newRefreshToken = user.getRefreshToken();
+
+    res.cookie("access_token", newAccessToken, accessTokenOptions);
+    res.cookie("refresh_token", newRefreshToken, refreshTokenOptions);
 
     res.status(200).json({
       success: true,
       message: "Password updated successfully!",
+      accessToken: newAccessToken,
     });
   },
 );
 
 // @desc       get user by Id
-// @route      PUT /api/v1/user/:id
+// @route      GET /api/v1/user/:id
 // @access     Private (Admin)
 export const getUserById = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid user id", 400));
+    }
+
     const user = await User.findById(req.params.id);
-    res.status(201).json({
+
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    res.status(200).json({
       success: true,
       user,
     });
@@ -168,53 +273,63 @@ export const getUserById = catchAsyncError(
 );
 
 // @desc       get all users
-// @route      PUT /api/v1/users
+// @route      GET /api/v1/users
 // @access     Private (Admin)
 export const getAllUsers = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    // Parse and validate query parameters
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(
       50,
       Math.max(1, parseInt(req.query.pageSize as string) || 10),
     );
-    const search = req.query.search as string;
-    const role = req.query.role as string;
-    const isActiveParam = req.query.isActive as string;
-    const sortBy = (req.query.sortBy as string) || "createdAt";
-    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+
+    const search =
+      typeof req.query.search === "string" ? req.query.search : undefined;
+    const role =
+      typeof req.query.role === "string" ? req.query.role : undefined;
+    const isActiveParam =
+      typeof req.query.isActive === "string" ? req.query.isActive : undefined;
+    const sortByRaw =
+      typeof req.query.sortBy === "string" ? req.query.sortBy : "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+
+    const sortBy = ALLOWED_SORT_FIELDS.includes(sortByRaw)
+      ? sortByRaw
+      : "createdAt";
 
     const skipAmount = (page - 1) * pageSize;
 
-    // Build dynamic query
     const query: FilterQuery<typeof User> = {};
 
-    // Add search functionality
     if (search && search.trim()) {
+      const safeSearch = escapeRegex(search.trim());
       query.$or = [
-        { name: { $regex: search.trim(), $options: "i" } },
-        { email: { $regex: search.trim(), $options: "i" } },
+        { name: { $regex: safeSearch, $options: "i" } },
+        { email: { $regex: safeSearch, $options: "i" } },
       ];
     }
 
-    // Filter by role
     if (role && role !== "all") {
+      if (!Object.values(UserRole).includes(role as UserRole)) {
+        return next(new ErrorHandler("Invalid role filter", 400));
+      }
       query.role = role;
     }
 
-    // Filter by active status
     if (isActiveParam && isActiveParam !== "all") {
+      if (isActiveParam !== "true" && isActiveParam !== "false") {
+        return next(new ErrorHandler("Invalid isActive filter", 400));
+      }
       query.isActive = isActiveParam === "true";
     }
 
-    // Build sort options
-    const sortOptions: any = {};
-    sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy]: sortOrder === "desc" ? -1 : 1,
+    };
 
-    // Execute queries in parallel for better performance
     const [users, totalUsers] = await Promise.all([
       User.find(query)
-        .select("-password -refreshToken")
+        .select("-password")
         .skip(skipAmount)
         .limit(pageSize)
         .sort(sortOptions)
@@ -222,12 +337,10 @@ export const getAllUsers = catchAsyncError(
       User.countDocuments(query),
     ]);
 
-    // Calculate pagination metadata
     const totalPages = Math.ceil(totalUsers / pageSize);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
-    // Handle edge case where page exceeds total pages
     if (page > totalPages && totalPages > 0) {
       return res.status(400).json({
         success: false,
@@ -264,36 +377,75 @@ export const getAllUsers = catchAsyncError(
 export const updateUserStatus = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const { id, role, isActive } = req.body;
-    const user = await User.findById(id);
 
+    if (!id || typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      return next(new ErrorHandler("Invalid user id", 400));
+    }
+
+    if (role !== undefined && !Object.values(UserRole).includes(role)) {
+      return next(new ErrorHandler("Invalid role", 400));
+    }
+
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+      return next(new ErrorHandler("isActive must be a boolean", 400));
+    }
+
+    if (req.user && id === req.user._id.toString()) {
+      return next(
+        new ErrorHandler(
+          "You cannot modify your own account via this endpoint",
+          400,
+        ),
+      );
+    }
+
+    const user = await User.findById(id);
     if (!user) {
       return next(new ErrorHandler(`User not found: ${id}`, 404));
     }
 
+    const updates: Partial<IUser> = {};
+    if (role !== undefined) updates.role = role;
+    if (isActive !== undefined) {
+      updates.isActive = isActive;
+      updates.suspendedByAdmin = !isActive;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { role, isActive },
-      { new: true },
+      { $set: updates },
+      { new: true, runValidators: true },
     );
 
-    res.status(201).json({ success: true, updatedUser });
+    res.status(200).json({ success: true, updatedUser });
   },
 );
 
 // @desc       delete user
-// @route      PUT /api/v1/delete-user
+// @route      DELETE /api/v1/delete-user/:id
 // @access     Private (Admin)
 export const deleteUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new ErrorHandler("Invalid user id", 400));
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
       return next(new ErrorHandler("User is not available with this id", 404));
     }
 
-    await User.findByIdAndDelete(req.params.id);
+    const userId = user._id;
 
-    res.status(201).json({
+    await Promise.all([
+      Invoice.deleteMany({ user: userId }),
+      Customer.deleteMany({ user: userId }),
+    ]);
+
+    await user.deleteOne();
+
+    res.status(200).json({
       success: true,
       message: "User deleted successfully!",
     });
@@ -323,7 +475,6 @@ export const deleteAccount = catchAsyncError(
 
     const userId = user._id;
 
-    // Cascade delete everything tied to this user so no orphaned data remains
     await Promise.all([
       Invoice.deleteMany({ user: userId }),
       Customer.deleteMany({ user: userId }),
@@ -331,11 +482,7 @@ export const deleteAccount = catchAsyncError(
 
     await user.deleteOne();
 
-    // Clear the auth cookie so the now-deleted user's session token stops working
-    res.cookie("token", "", {
-      expires: new Date(0),
-      httpOnly: true,
-    });
+    clearAuthCookies(res);
 
     res.status(200).json({
       success: true,
@@ -369,13 +516,10 @@ export const deactivateAccount = catchAsyncError(
     }
 
     user.isActive = false;
+    user.suspendedByAdmin = false;
     await user.save();
 
-    // Log the user out immediately — a deactivated account shouldn't stay signed in
-    res.cookie("token", "", {
-      expires: new Date(0),
-      httpOnly: true,
-    });
+    clearAuthCookies(res);
 
     res.status(200).json({
       success: true,
@@ -384,9 +528,9 @@ export const deactivateAccount = catchAsyncError(
   },
 );
 
-// @desc        Reactivate a deactivated account (called right after login if isActive is false)
+// @desc        Reactivate a deactivated account
 // @route       PATCH /api/v1/reactivate-account
-// @access      Private (requires a valid token, even though isActive is false)
+// @access      Private
 export const reactivateAccount = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const user = await User.findById(req.user?._id);
@@ -394,6 +538,15 @@ export const reactivateAccount = catchAsyncError(
 
     if (user.isActive) {
       return next(new ErrorHandler("Your account is already active", 400));
+    }
+
+    if (user.suspendedByAdmin) {
+      return next(
+        new ErrorHandler(
+          "This account was suspended by an admin. Please contact support to reactivate it.",
+          403,
+        ),
+      );
     }
 
     user.isActive = true;

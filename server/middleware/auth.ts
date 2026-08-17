@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { catchAsyncError } from "./catchAsyncErrors";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import ErrorHandler from "../utils/errorHandler";
-import User from "../models/User";
+import User, { UserRole } from "../models/User";
 import config from "../config";
 
 // authenticated user
@@ -33,15 +33,18 @@ export const isAuthenticated = catchAsyncError(
       if (!user) {
         return next(new ErrorHandler("User not found", 404));
       }
-
-      // Check if user account is active
-      if (!user.isActive) {
-        return next(
-          new ErrorHandler(
-            "This account has been suspended! Try to contact the admin",
-            403
-          )
+      if (user.passwordChangedAt && decoded.iat) {
+        const passwordChangedAtSeconds = Math.floor(
+          user.passwordChangedAt.getTime() / 1000
         );
+        if (decoded.iat < passwordChangedAtSeconds) {
+          return next(
+            new ErrorHandler(
+              "Password was recently changed. Please login again.",
+              401
+            )
+          );
+        }
       }
 
       // Attach user to request object
@@ -72,17 +75,37 @@ export const isAuthenticated = catchAsyncError(
   }
 );
 
+// require an active (non-deactivated, non-suspended) account
+export const requireActiveAccount = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    return next(new ErrorHandler("User not authenticated", 401));
+  }
+
+  if (!req.user.isActive) {
+    const message = req.user.suspendedByAdmin
+      ? "This account has been suspended! Try to contact the admin"
+      : "Your account is deactivated. Please reactivate it to continue.";
+    return next(new ErrorHandler(message, 403));
+  }
+
+  next();
+};
+
 // validate user role
-export const authorizeRoles = (...roles: string[]) => {
+export const authorizeRoles = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new ErrorHandler("User not authenticated", 401));
     }
 
-    if (!roles.includes(req.user?.role || "")) {
+    if (!roles.includes(req.user.role as UserRole)) {
       return next(
         new ErrorHandler(
-          `Role (${req.user?.role}) is not allowed to access this resource`,
+          `Role (${req.user.role}) is not allowed to access this resource`,
           403
         )
       );

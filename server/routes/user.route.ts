@@ -11,7 +11,12 @@ import {
   reactivateAccount,
   deactivateAccount,
 } from "../controllers/user.controller";
-import { authorizeRoles, isAuthenticated } from "../middleware/auth";
+import {
+  authorizeRoles,
+  isAuthenticated,
+  requireActiveAccount,
+} from "../middleware/auth";
+import { UserRole } from "../models/User";
 import {
   adminListLimiter,
   updatePasswordLimiter,
@@ -20,46 +25,72 @@ import {
 
 const userRouter = express.Router();
 
-userRouter.get("/me", isAuthenticated, getMe);
+userRouter.get("/me", isAuthenticated, requireActiveAccount, getMe);
+
 userRouter.put(
   "/update-user-password",
   isAuthenticated,
+  requireActiveAccount,
   updatePasswordLimiter,
   updatePassword,
 );
-userRouter.get("/get-user/:id", getUserById);
+
+userRouter.get(
+  "/get-user/:id",
+  isAuthenticated,
+  requireActiveAccount,
+  authorizeRoles(UserRole.ADMIN),
+  adminListLimiter,
+  getUserById,
+);
+
 userRouter.get(
   "/get-users",
   isAuthenticated,
-  authorizeRoles("admin"),
+  requireActiveAccount,
+  authorizeRoles(UserRole.ADMIN),
   adminListLimiter,
   getAllUsers,
 );
+
 userRouter.put(
   "/update-user-profile",
   isAuthenticated,
+  requireActiveAccount,
   uploadLimiter,
   updateUserProfile,
 );
 
-userRouter.patch("/update-default-currency", isAuthenticated);
-
 userRouter.put(
   "/update-user-status",
   isAuthenticated,
-  authorizeRoles("admin"),
+  requireActiveAccount,
+  authorizeRoles(UserRole.ADMIN),
   updateUserStatus,
 );
 
 userRouter.delete(
   "/delete-user/:id",
   isAuthenticated,
-  authorizeRoles("admin"),
+  requireActiveAccount,
+  authorizeRoles(UserRole.ADMIN),
   deleteUser,
 );
 
-userRouter.delete("/delete-account", isAuthenticated, deleteAccount);
-userRouter.patch("/deactivate-account", isAuthenticated, deactivateAccount);
+userRouter.delete(
+  "/delete-account",
+  isAuthenticated,
+  requireActiveAccount,
+  deleteAccount,
+);
+
+userRouter.patch(
+  "/deactivate-account",
+  isAuthenticated,
+  requireActiveAccount,
+  deactivateAccount,
+);
+
 userRouter.patch("/reactivate-account", isAuthenticated, reactivateAccount);
 
 export default userRouter;
