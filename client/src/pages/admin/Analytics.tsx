@@ -109,7 +109,6 @@ const Analytics = () => {
     }, []);
 
   const revenueByCurrency = analytics?.revenue?.byCurrency || [];
-  console.log(analytics)
 
   const totalPaid = revenueByCurrency.reduce(
     (total: number, item: { paid: number }) => total + item.paid,
