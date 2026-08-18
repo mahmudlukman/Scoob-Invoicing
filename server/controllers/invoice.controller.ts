@@ -23,6 +23,10 @@ interface ComputedTotals {
   total: number;
 }
 
+const ALLOWED_MANUAL_STATUSES = ["Paid", "Unpaid", "Pending"] as const;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const validateAndComputeTotals = (
   items: IItem[],
   next: NextFunction,
@@ -144,7 +148,17 @@ export const createInvoice = catchAsyncError(
       currency: resolvedCurrency,
     });
 
-    await invoice.save();
+    try {
+      await invoice.save();
+    } catch (err: any) {
+      // Surface duplicate invoiceNumber as a clean 400 instead of a raw 500
+      if (err?.code === 11000) {
+        return next(
+          new ErrorHandler("An invoice with this number already exists", 400),
+        );
+      }
+      throw err;
+    }
 
     // Only save/update the customer record if the user opted in
     if (saveCustomer && billTo?.clientName) {
@@ -277,8 +291,17 @@ export const updateInvoice = catchAsyncError(
       status,
     } = req.body;
 
+    if (status !== undefined && !ALLOWED_MANUAL_STATUSES.includes(status)) {
+      return next(
+        new ErrorHandler(
+          `Status must be one of: ${ALLOWED_MANUAL_STATUSES.join(", ")}`,
+          400,
+        ),
+      );
+    }
+
     const invoice = await Invoice.findById(req.params.id);
-    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
     if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
       return;
@@ -291,7 +314,26 @@ export const updateInvoice = catchAsyncError(
       totalsUpdate = { items, ...totals };
     }
 
-    if (status !== undefined && !items) {
+    // Apply field + totals updates FIRST, so any status logic below sees the
+    // up-to-date total rather than a stale one. Previously this ran before
+    // the totals were applied when items were included, which could leave
+    // a "Paid" request as "Partial" after new items changed the total.
+    Object.assign(invoice, {
+      ...(invoiceNumber !== undefined && { invoiceNumber }),
+      ...(invoiceDate !== undefined && { invoiceDate }),
+      ...(dueDate !== undefined && { dueDate }),
+      ...(billFrom !== undefined && { billFrom }),
+      ...(billTo !== undefined && { billTo }),
+      ...(notes !== undefined && { notes }),
+      ...(paymentTerms !== undefined && { paymentTerms }),
+      ...totalsUpdate,
+    });
+
+    // Status handling now runs whenever `status` is present, regardless of
+    // whether `items` was also sent — previously this whole block was
+    // skipped if items were included, which let the "can't mark Unpaid
+    // with existing payments" guard be bypassed just by sending items too.
+    if (status !== undefined) {
       const currentAmountPaid = invoice.payments.reduce(
         (sum, p) => sum + p.amount,
         0,
@@ -318,17 +360,6 @@ export const updateInvoice = catchAsyncError(
       }
     }
 
-    Object.assign(invoice, {
-      ...(invoiceNumber !== undefined && { invoiceNumber }),
-      ...(invoiceDate !== undefined && { invoiceDate }),
-      ...(dueDate !== undefined && { dueDate }),
-      ...(billFrom !== undefined && { billFrom }),
-      ...(billTo !== undefined && { billTo }),
-      ...(notes !== undefined && { notes }),
-      ...(paymentTerms !== undefined && { paymentTerms }),
-      ...totalsUpdate,
-    });
-
     const amountPaidAfter = invoice.payments.reduce(
       (sum, p) => sum + p.amount,
       0,
@@ -342,7 +373,16 @@ export const updateInvoice = catchAsyncError(
             invoice.status,
           );
 
-    await invoice.save();
+    try {
+      await invoice.save();
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        return next(
+          new ErrorHandler("An invoice with this number already exists", 400),
+        );
+      }
+      throw err;
+    }
 
     const computed = getInvoiceComputedFields(invoice);
 
@@ -396,6 +436,12 @@ export const duplicateInvoice = catchAsyncError(
     const newInvoiceNumber =
       prefix + String(maxNumber + 1).padStart(padLength, "0");
 
+    // NOTE: computing the next number this way (max + 1) has a race condition
+    // if two duplicate/create requests land concurrently for the same user —
+    // both can compute the same number. A proper fix needs an atomic
+    // per-user counter (e.g. a Counter collection + findOneAndUpdate with
+    // $inc), which is a bigger change than a one-line patch, so it's left
+    // as a known limitation here rather than guessed at.
     const duplicate = new Invoice({
       user: req.user?._id,
       invoiceNumber: newInvoiceNumber,
@@ -409,10 +455,23 @@ export const duplicateInvoice = catchAsyncError(
       subtotal: original.subtotal,
       taxTotal: original.taxTotal,
       total: original.total,
+      currency: original.currency, // was previously missing — duplicates fell back to default currency
       status: "Unpaid",
     });
 
-    await duplicate.save();
+    try {
+      await duplicate.save();
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        return next(
+          new ErrorHandler(
+            "Could not generate a unique invoice number, please try again",
+            409,
+          ),
+        );
+      }
+      throw err;
+    }
 
     res.status(201).json({
       success: true,
@@ -490,6 +549,12 @@ export const getIncomeByMonth = catchAsyncError(
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year + 1, 0, 1);
 
+    // NOTE: this groups by `createdAt` (when the invoice was created), not
+    // by when it was actually paid. An invoice created in January but paid
+    // in March currently shows as January income. If cash-basis reporting
+    // is the intent, this needs a `paidAt` field set when status flips to
+    // "Paid" (or the last payment's date) to group on instead — left
+    // unchanged here since that's a schema/product decision, not a bug fix.
     const rawIncomeByMonth = await Invoice.aggregate([
       {
         $match: {
@@ -557,14 +622,16 @@ export const deleteInvoice = catchAsyncError(
     }
 
     const invoice = await Invoice.findById(req.params.id);
-    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+    if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
     if (!assertInvoiceOwner(invoice.user, req.user?._id, next, "update"))
       return;
 
     await invoice.deleteOne();
 
-    res.json({ message: "Invoice deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Invoice deleted successfully" });
   },
 );
 
@@ -589,6 +656,15 @@ export const addPayment = catchAsyncError(
       );
     }
 
+    let paymentDate = new Date();
+    if (date !== undefined) {
+      const parsed = new Date(date);
+      if (Number.isNaN(parsed.getTime())) {
+        return next(new ErrorHandler("Invalid payment date", 400));
+      }
+      paymentDate = parsed;
+    }
+
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return next(new ErrorHandler("Invoice not found", 404));
 
@@ -597,7 +673,7 @@ export const addPayment = catchAsyncError(
 
     invoice.payments.push({
       amount,
-      date: date ? new Date(date) : new Date(),
+      date: paymentDate,
       method,
       note,
     });
@@ -702,6 +778,10 @@ export const sendReceipt = catchAsyncError(
 
     if (!recipientEmail) {
       return next(new ErrorHandler("No recipient email available", 400));
+    }
+
+    if (!EMAIL_REGEX.test(recipientEmail)) {
+      return next(new ErrorHandler("Invalid recipient email", 400));
     }
 
     const currencySymbol = invoice.currency?.symbol || "₦";

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.User = void 0;
+exports.User = exports.UserRole = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -45,16 +45,20 @@ var UserRole;
 (function (UserRole) {
     UserRole["USER"] = "user";
     UserRole["ADMIN"] = "admin";
-})(UserRole || (UserRole = {}));
+})(UserRole || (exports.UserRole = UserRole = {}));
 const UserSchema = new mongoose_1.Schema({
     name: {
         type: String,
         required: [true, "Please enter your name!"],
+        trim: true,
     },
     email: {
         type: String,
         required: [true, "Please enter your email!"],
         unique: true,
+        trim: true,
+        lowercase: true,
+        match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter a valid email"],
     },
     password: {
         type: String,
@@ -64,6 +68,7 @@ const UserSchema = new mongoose_1.Schema({
     businessName: {
         type: String,
         default: "",
+        trim: true,
     },
     businessLogo: {
         public_id: {
@@ -76,6 +81,7 @@ const UserSchema = new mongoose_1.Schema({
     address: {
         type: String,
         default: "",
+        trim: true,
     },
     defaultCurrency: {
         code: { type: String, default: "NGN" },
@@ -84,6 +90,7 @@ const UserSchema = new mongoose_1.Schema({
     phone: {
         type: String,
         default: "",
+        trim: true,
     },
     role: {
         type: String,
@@ -94,6 +101,10 @@ const UserSchema = new mongoose_1.Schema({
         type: Boolean,
         default: true,
     },
+    suspendedByAdmin: {
+        type: Boolean,
+        default: false,
+    },
     invoicePreferences: {
         templateId: { type: String, default: "01" },
         paletteId: { type: String, default: "green" },
@@ -103,15 +114,19 @@ const UserSchema = new mongoose_1.Schema({
             background: { type: String, default: "#F0FDF4" },
         },
     },
+    passwordChangedAt: Date,
     resetPasswordToken: String,
     resetPasswordTime: Date,
 }, { minimize: false, timestamps: true });
 // Hash password
 UserSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) {
-        next();
+    if (!this.isModified("password") || this.$locals.skipHash) {
+        return next();
     }
     this.password = await bcryptjs_1.default.hash(this.password, 10);
+    if (!this.isNew) {
+        this.passwordChangedAt = new Date();
+    }
     next();
 });
 // JWT token

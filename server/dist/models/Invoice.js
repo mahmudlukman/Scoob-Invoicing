@@ -47,20 +47,25 @@ const ItemSchema = new mongoose_1.Schema({
     quantity: {
         type: Number,
         required: true,
+        min: 0,
     },
     unitPrice: {
         type: Number,
         required: true,
+        min: 0,
     },
     taxPercent: {
         type: Number,
         default: 0,
+        min: 0,
+        max: 100,
     },
     total: {
         type: Number,
         required: true,
     },
 });
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Payment schema definition
 const PaymentSchema = new mongoose_1.Schema({
     amount: {
@@ -104,13 +109,20 @@ const InvoiceSchema = new mongoose_1.Schema({
     },
     billFrom: {
         businessName: String,
-        email: String,
+        businessLogo: String,
+        email: {
+            type: String,
+            match: [EMAIL_REGEX, "Please enter a valid email"],
+        },
         address: String,
         phone: String,
     },
     billTo: {
         clientName: String,
-        email: String,
+        email: {
+            type: String,
+            match: [EMAIL_REGEX, "Please enter a valid email"],
+        },
         address: String,
         phone: String,
     },
@@ -138,6 +150,19 @@ const InvoiceSchema = new mongoose_1.Schema({
         type: Date,
     },
 }, { timestamps: true });
-// Export the model
+InvoiceSchema.pre("validate", function (next) {
+    if (Array.isArray(this.items)) {
+        this.items.forEach((item) => {
+            const unitPrice = Number(item.unitPrice) || 0;
+            const quantity = Number(item.quantity) || 0;
+            const taxPercent = Number(item.taxPercent) || 0;
+            item.total = unitPrice * quantity * (1 + taxPercent / 100);
+        });
+    }
+    next();
+});
+InvoiceSchema.index({ user: 1, invoiceNumber: 1 }, { unique: true });
+InvoiceSchema.index({ user: 1, createdAt: -1 });
+InvoiceSchema.index({ user: 1, status: 1, createdAt: 1 });
 const Invoice = mongoose_1.default.model("Invoice", InvoiceSchema);
 exports.default = Invoice;

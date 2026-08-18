@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.authorizeRoles = exports.isAuthenticated = void 0;
+exports.authorizeRoles = exports.requireActiveAccount = exports.isAuthenticated = void 0;
 const catchAsyncErrors_1 = require("./catchAsyncErrors");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
@@ -26,9 +26,11 @@ exports.isAuthenticated = (0, catchAsyncErrors_1.catchAsyncError)(async (req, re
         if (!user) {
             return next(new errorHandler_1.default("User not found", 404));
         }
-        // Check if user account is active
-        if (!user.isActive) {
-            return next(new errorHandler_1.default("This account has been suspended! Try to contact the admin", 403));
+        if (user.passwordChangedAt && decoded.iat) {
+            const passwordChangedAtSeconds = Math.floor(user.passwordChangedAt.getTime() / 1000);
+            if (decoded.iat < passwordChangedAtSeconds) {
+                return next(new errorHandler_1.default("Password was recently changed. Please login again.", 401));
+            }
         }
         // Attach user to request object
         req.user = user;
@@ -49,14 +51,28 @@ exports.isAuthenticated = (0, catchAsyncErrors_1.catchAsyncError)(async (req, re
         return next(new errorHandler_1.default("Authentication failed", 401));
     }
 });
+// require an active (non-deactivated, non-suspended) account
+const requireActiveAccount = (req, res, next) => {
+    if (!req.user) {
+        return next(new errorHandler_1.default("User not authenticated", 401));
+    }
+    if (!req.user.isActive) {
+        const message = req.user.suspendedByAdmin
+            ? "This account has been suspended! Try to contact the admin"
+            : "Your account is deactivated. Please reactivate it to continue.";
+        return next(new errorHandler_1.default(message, 403));
+    }
+    next();
+};
+exports.requireActiveAccount = requireActiveAccount;
 // validate user role
 const authorizeRoles = (...roles) => {
     return (req, res, next) => {
         if (!req.user) {
             return next(new errorHandler_1.default("User not authenticated", 401));
         }
-        if (!roles.includes(req.user?.role || "")) {
-            return next(new errorHandler_1.default(`Role (${req.user?.role}) is not allowed to access this resource`, 403));
+        if (!roles.includes(req.user.role)) {
+            return next(new errorHandler_1.default(`Role (${req.user.role}) is not allowed to access this resource`, 403));
         }
         next();
     };

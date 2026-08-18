@@ -20,13 +20,21 @@ const CustomerSchema = new Schema<ICustomer>(
     clientName: {
       type: String,
       required: true,
+      trim: true,
     },
-    email: String,
-    address: String,
-    phone: String,
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email address"],
+    },
+    address: { type: String, trim: true },
+    phone: { type: String, trim: true },
   },
   { timestamps: true },
 );
+
+CustomerSchema.index({ user: 1, clientName: 1 });
 
 CustomerSchema.index({ user: 1, email: 1 }, { unique: true, sparse: true });
 

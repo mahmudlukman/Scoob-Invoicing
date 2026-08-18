@@ -1,13 +1,19 @@
 import express from "express";
-import { authorizeRoles, isAuthenticated } from "../middleware/auth";
+import {
+  authorizeRoles,
+  isAuthenticated,
+  requireActiveAccount,
+} from "../middleware/auth";
 import { getAnalytics } from "../controllers/analytics.controller";
+import { UserRole } from "../models/User";
 
 const analyticsRouter = express.Router();
 
 analyticsRouter.get(
   "/analytics",
   isAuthenticated,
-  authorizeRoles("admin"),
+  requireActiveAccount,
+  authorizeRoles(UserRole.ADMIN),
   getAnalytics,
 );
 

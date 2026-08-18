@@ -31,20 +31,26 @@ const ItemSchema = new Schema<IItem>({
   quantity: {
     type: Number,
     required: true,
+    min: 0,
   },
   unitPrice: {
     type: Number,
     required: true,
+    min: 0,
   },
   taxPercent: {
     type: Number,
     default: 0,
+    min: 0,
+    max: 100,
   },
   total: {
     type: Number,
     required: true,
   },
 });
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Payment interface
 export interface IPayment {
@@ -133,13 +139,20 @@ const InvoiceSchema = new Schema<IInvoice>(
     },
     billFrom: {
       businessName: String,
-      email: String,
+      businessLogo: String,
+      email: {
+        type: String,
+        match: [EMAIL_REGEX, "Please enter a valid email"],
+      },
       address: String,
       phone: String,
     },
     billTo: {
       clientName: String,
-      email: String,
+      email: {
+        type: String,
+        match: [EMAIL_REGEX, "Please enter a valid email"],
+      },
       address: String,
       phone: String,
     },
@@ -170,7 +183,24 @@ const InvoiceSchema = new Schema<IInvoice>(
   { timestamps: true },
 );
 
-// Export the model
+InvoiceSchema.pre<IInvoice>("validate", function (next) {
+  if (Array.isArray(this.items)) {
+    this.items.forEach((item) => {
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 0;
+      const taxPercent = Number(item.taxPercent) || 0;
+      item.total = unitPrice * quantity * (1 + taxPercent / 100);
+    });
+  }
+  next();
+});
+
+InvoiceSchema.index({ user: 1, invoiceNumber: 1 }, { unique: true });
+
+InvoiceSchema.index({ user: 1, createdAt: -1 });
+
+InvoiceSchema.index({ user: 1, status: 1, createdAt: 1 });
+
 const Invoice: Model<IInvoice> = mongoose.model<IInvoice>(
   "Invoice",
   InvoiceSchema,
