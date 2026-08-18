@@ -10,6 +10,7 @@ import RecentActivity from "../../components/analytics/RecentActivity";
 import { useNavigate } from "react-router-dom";
 import InvoicesByMonthChart from "../../components/analytics/InvoiceStatusChart";
 import RevenueByMonthChart from "../../components/analytics/RevenueByMonthChart";
+import TopUsers from "../../components/analytics/TopUsers";
 
 interface UserGrowthItem {
   _id: {
@@ -179,6 +180,12 @@ const Analytics = () => {
           users={analytics?.recentActivity?.users || []}
           onSeeAllInvoices={() => navigate("/invoices")}
           onSeeAllUsers={() => navigate("/all-users")}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-6 mt-6">
+        <TopUsers
+          users={analytics?.topUsers || []}
+          onSeeAll={() => navigate("/all-users")}
         />
       </div>
 
