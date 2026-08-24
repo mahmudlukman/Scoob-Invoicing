@@ -4,12 +4,12 @@ import { useNavigate } from "react-router-dom";
 import ProfileDropdown from "../layout/ProfileDropdown";
 import Button from "../ui/Button";
 import { useSelector } from "react-redux";
-import type { RootState } from "../../@types";
 import { useLogoutMutation } from "../../redux/features/auth/authApi";
 import Modal from "../ui/Modal";
 import Login from "../../pages/auth/Login";
 import ForgotPassword from "../../pages/auth/ForgotPassword";
 import SignUp from "../../pages/auth/SignUp";
+import type { RootState } from "../../redux/store";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);

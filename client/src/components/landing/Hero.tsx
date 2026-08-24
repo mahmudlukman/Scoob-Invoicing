@@ -58,7 +58,7 @@ const Hero = () => {
                     setOpenAuthModal(true);
                   }}
                 >
-                  Start Free Trial
+                  Start Now
                 </Button>
 
                 <a

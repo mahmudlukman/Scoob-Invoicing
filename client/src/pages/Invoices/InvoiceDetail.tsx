@@ -22,18 +22,14 @@ import {
   useDeletePaymentMutation,
   useAddPaymentMutation,
 } from "../../redux/features/invoice/invoiceApi";
-import type {
-  InvoiceFormData,
-  Payment,
-  RootState,
-  ServerError,
-} from "../../@types";
+import type { InvoiceFormData, Payment, ServerError } from "../../@types";
 import Loading from "../../components/ui/Loading";
 import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 import { addThousandsSeparator } from "../../utils/helper";
 import PaymentActionDropdown from "../../components/invoices/PaymentActionDropdown";
 import SendReceiptDropdown from "../../components/invoices/SendReceiptDropdown";
+import type { RootState } from "../../redux/store";
 
 const INVOICE_WIDTH = 680;
 

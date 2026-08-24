@@ -1,26 +1,29 @@
 import { Navigate, Outlet } from "react-router-dom";
-import DashboardLayout from "../layout/DashboardLayout";
 import { useSelector } from "react-redux";
-import type { RootState } from "../../@types";
 import type { ReactNode } from "react";
+import DashboardLayout from "../layout/DashboardLayout";
+import type { RootState } from "../../redux/store";
 
 interface ProtectedRouteProps {
   children?: ReactNode;
   allowedRoles?: string[];
 }
 
-const ProtectedRoute = ({
-  children,
-  allowedRoles,
-}: ProtectedRouteProps) => {
-  const { user } = useSelector((state: RootState) => state.auth);
+const PrivateRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
+  const { user, isInitialized } = useSelector((state: RootState) => state.auth);
 
-  // Not authenticated
+  if (!isInitialized) {
+    return (
+      <div className="auth-loading">
+        <span className="spinner" />
+      </div>
+    );
+  }
+
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  // Authenticated but role not allowed
   if (
     allowedRoles &&
     allowedRoles.length > 0 &&
@@ -29,11 +32,7 @@ const ProtectedRoute = ({
     return <Navigate to="/dashboard" replace />;
   }
 
-  return (
-    <DashboardLayout activeMenu="">
-      {children ? children : <Outlet />}
-    </DashboardLayout>
-  );
+  return <DashboardLayout>{children ?? <Outlet />}</DashboardLayout>;
 };
 
-export default ProtectedRoute;
+export default PrivateRoute;

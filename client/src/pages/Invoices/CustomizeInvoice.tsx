@@ -4,10 +4,10 @@ import { useSelector } from "react-redux";
 import { Check, Palette, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../components/ui/Button";
-import type { RootState } from "../../@types";
 import { useUpdateInvoicePreferencesMutation } from "../../redux/features/invoice/invoiceApi";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 import { COLOR_PALETTES, PREVIEW_INVOICE, TEMPLATES } from "../../utils/data";
+import type { RootState } from "../../redux/store";
 
 const INVOICE_WIDTH = 680;
 

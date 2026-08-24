@@ -8,22 +8,21 @@ import {
   useDeleteUserMutation,
 } from "../../redux/features/user/userApi";
 import { useSelector } from "react-redux";
-import type { RootState, ServerError, User } from "../../@types";
+import type { ServerError, User } from "../../@types";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
+import type { RootState } from "../../redux/store";
 
 const AllUsers = () => {
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState(""); // For immediate controlled input value
-  const [search, setSearch] = useState(""); // Debounced value passed to query
+  const [searchTerm, setSearchTerm] = useState("");
+  const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const [isActive, setIsActive] = useState("all");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Grab the logged-in user profile to prevent self-destructive operations
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
-
-  // Debounce search string to limit API performance bottlenecking
+  
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       setPage(1);

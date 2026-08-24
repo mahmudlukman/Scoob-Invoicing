@@ -15,8 +15,9 @@ import TextareaField from "../../components/ui/TextareaField";
 import toast from "react-hot-toast";
 import { useUpdateUserProfileMutation } from "../../redux/features/user/userApi";
 import { useSelector } from "react-redux";
-import type { RootState, ServerError } from "../../@types";
+import type { ServerError } from "../../@types";
 import { SUPPORTED_CURRENCIES } from "../../utils/currencies";
+import type { RootState } from "../../redux/store";
 
 interface ProfileFormData {
   name: string;

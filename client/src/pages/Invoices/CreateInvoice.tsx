@@ -11,7 +11,7 @@ import {
   useGetAllInvoicesQuery,
 } from "../../redux/features/invoice/invoiceApi";
 import { useSelector } from "react-redux";
-import type { InvoiceFormData, RootState, ServerError } from "../../@types";
+import type { InvoiceFormData, ServerError } from "../../@types";
 import SelectField from "../../components/ui/SelectedField";
 import { addThousandsSeparator } from "../../utils/helper";
 import { useGetCustomersQuery } from "../../redux/features/customer/customerApi";
@@ -20,6 +20,7 @@ import {
   getCurrencyByCode,
   SUPPORTED_CURRENCIES,
 } from "../../utils/currencies";
+import type { RootState } from "../../redux/store";
 
 interface CreateInvoiceProps {
   existingInvoice?: InvoiceFormData;

@@ -1,7 +1,13 @@
-export interface RootState {
-  auth: {
-    user: User | null;
-  };
+export interface AuthState {
+  token: string;
+  user: User | null;
+  isInitialized: boolean;
+}
+
+export interface LoadUserResponse {
+  success: boolean;
+  user: User;
+  accessToken: string;
 }
 
 export interface BusinessLogo {
