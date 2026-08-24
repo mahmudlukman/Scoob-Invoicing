@@ -25,8 +25,6 @@ const SendReceiptDropdown = ({ invoice }: SendReceiptDropdownProps) => {
   const [email, setEmail] = useState(invoice.billTo?.email || "");
   const [sendReceipt, { isLoading: isSending }] = useSendReceiptMutation();
 
-  // Reflects whether a receipt was ever sent for this invoice — sourced
-  // from the persisted `lastReceiptSentAt` field, same pattern as reminders.
   const wasSent = Boolean(invoice.lastReceiptSentAt);
 
   const MENU_WIDTH = 200;

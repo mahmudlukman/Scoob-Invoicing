@@ -7,7 +7,7 @@ import Button from "../ui/Button";
 import Modal from "../ui/Modal";
 import { toast } from "react-hot-toast";
 import { useParseInvoiceFromTextMutation } from "../../redux/features/ai/aiApi";
-import type { RootState } from "../../@types";
+import type { RootState } from "../../redux/store";
 
 interface CreateWithAIModelProps {
   isOpen: boolean;
