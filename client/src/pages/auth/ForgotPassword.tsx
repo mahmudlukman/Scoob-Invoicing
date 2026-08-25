@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-// import { validateEmail } from "../../utils/helper";
 import { useForgotPasswordMutation } from "../../redux/features/auth/authApi";
+import {
+  validateForgotPasswordForm,
+  getAuthErrorMessage,
+} from "../../utils/authValidation";
 import Input from "../../components/inputs/Input";
 
 interface ForgotPasswordProps {
@@ -12,33 +15,23 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
-  // const navigate = useNavigate();
 
-  // Handle Login Form Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email) {
-      setError("Please enter a valid email address.");
+    const validationError = validateForgotPasswordForm(email);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setError(null);
 
     try {
-      const res = await forgotPassword({ email }).unwrap();
-      if (res?.message) {
-        setSuccess(res.message);
-      } else {
-        setSuccess("Registration successful!");
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      if (err.data?.message) {
-        setError(err.data.message);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      const res = await forgotPassword({ email: email.trim() }).unwrap();
+      setSuccess(res?.message || "Password reset link sent! Check your inbox.");
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     }
   };
 
@@ -74,6 +67,7 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
         <p className="text-[13px] text-slate-800 mt-3">
           Remembered your password?{" "}
           <button
+            type="button"
             className="font-medium text-black hover:text-black/80 underline cursor-pointer"
             onClick={() => setCurrentPage("login")}
           >

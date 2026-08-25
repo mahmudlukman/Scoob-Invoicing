@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-// import { validateEmail } from "../../utils/helper";
 import { useRegisterMutation } from "../../redux/features/auth/authApi";
+import {
+  validateSignUpForm,
+  getAuthErrorMessage,
+} from "../../utils/authValidation";
 import Input from "../../components/inputs/Input";
 
 const SignUp = ({
@@ -12,10 +15,7 @@ const SignUp = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_isRegistering, setIsRegistering] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  // const navigate = useNavigate();
   const [register, { isLoading }] = useRegisterMutation();
 
   useEffect(() => {
@@ -32,44 +32,24 @@ const SignUp = ({
   // Handle SignUp Form Submit
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!fullName) {
-      setError("Please enter full name.");
-      return;
-    }
-
-    if (!email) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
-    if (!password) {
-      setError("Please enter the password");
+    const validationError = validateSignUpForm(fullName, email, password);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setError(null);
-    setIsRegistering(true);
 
     try {
       const res = await register({
-        name: fullName,
-        email,
+        name: fullName.trim(),
+        email: email.trim(),
         password,
       }).unwrap();
-      if (res?.message) {
-        setSuccess(res.message);
-      } else {
-        setSuccess("Registration successful!");
-      }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      if (err.data?.message) {
-        setError(err.data.message);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setSuccess(res?.message || "Registration successful!");
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     }
   };
 
@@ -102,7 +82,7 @@ const SignUp = ({
             value={password}
             onChange={({ target }) => setPassword(target.value)}
             label="Password"
-            placeholder="Min 8 Characters"
+            placeholder="Min 6 Characters"
             type="password"
           />
         </div>
@@ -123,6 +103,7 @@ const SignUp = ({
         <p className="text-[13px] text-slate-800 mt-3">
           Already an account?{" "}
           <button
+            type="button"
             className="font-medium text-black hover:text-black/80 underline cursor-pointer"
             onClick={() => {
               setCurrentPage("login");

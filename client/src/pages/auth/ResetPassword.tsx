@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useResetPasswordMutation } from "../../redux/features/auth/authApi";
+import {
+  validatePassword,
+  validateConfirmPassword,
+  getAuthErrorMessage,
+} from "../../utils/authValidation";
 import toast from "react-hot-toast";
 import Input from "../../components/inputs/Input";
 
@@ -15,26 +20,32 @@ const ResetPassword = () => {
   const userId = searchParams?.get("id");
   const navigate = useNavigate();
 
+  // Bail out immediately if the link itself is malformed, instead of
+  // letting the user fill out the form first and only finding out on submit.
   useEffect(() => {
-    if (!userId) {
+    if (!token || !userId) {
       toast.error("Invalid reset password link!");
       navigate("/");
     }
-  }, [userId, navigate]);
+  }, [token, userId, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!token) {
-      setError("Missing reset token.");
+    if (!token || !userId) {
+      setError("Invalid reset password link.");
       return;
     }
-    if (!userId) {
-      setError("Missing User Id");
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+
+    const confirmError = validateConfirmPassword(password, confirmPassword);
+    if (confirmError) {
+      setError(confirmError);
       return;
     }
 
@@ -47,21 +58,12 @@ const ResetPassword = () => {
         newPassword: password,
       }).unwrap();
 
-      if (res?.message) {
-        setSuccess(res.message);
-      } else {
-        setSuccess("Password reset successful!");
-      }
+      setSuccess(res?.message || "Password reset successful!");
 
       // redirect after short delay
       setTimeout(() => navigate("/"), 3000);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      if (err.data?.message) {
-        setError(err.data.message);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     }
   };
 
@@ -80,7 +82,7 @@ const ResetPassword = () => {
             value={password}
             onChange={({ target }) => setPassword(target.value)}
             label="New Password"
-            placeholder="Min 8 Characters"
+            placeholder="Min 6 Characters"
             type="password"
           />
 

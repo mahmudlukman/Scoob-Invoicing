@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-// import { validateEmail } from "../../utils/helper";
 import { useLoginMutation } from "../../redux/features/auth/authApi";
 import { useNavigate } from "react-router-dom";
+import {
+  validateLoginForm,
+  getAuthErrorMessage,
+} from "../../utils/authValidation";
 import Input from "../../components/inputs/Input";
 
 interface LoginProps {
@@ -14,7 +17,6 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [login, { isLoading }] = useLoginMutation();
-
   const navigate = useNavigate();
 
   // Auto clear error after 5s
@@ -29,29 +31,20 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    if (!password) {
-      setError("Please enter the password");
+    const validationError = validateLoginForm(email, password);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setError(null);
 
     try {
-      await login({ email, password }).unwrap();
+      await login({ email: email.trim(), password }).unwrap();
       closeModal();
-
       navigate("/dashboard");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      if (err.data?.message) {
-        setError(err.data.message);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err));
     }
   };
 
@@ -61,7 +54,6 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
       <p className="text-xs text-slate-700 mt-[5px] mb-6 m-auto">
         Please enter your details to log in
       </p>
-
       <form onSubmit={handleLogin}>
         <Input
           value={email}
@@ -70,15 +62,13 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
           placeholder="john@example.com"
           type="text"
         />
-
         <Input
           value={password}
           onChange={({ target }) => setPassword(target.value)}
           label="Password"
-          placeholder="Min 8 Characters"
+          placeholder="Min 6 Characters"
           type="password"
         />
-
         <div className="flex justify-end mb-2">
           <button
             type="button"
@@ -88,9 +78,7 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
             Forgot Password?
           </button>
         </div>
-
         {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
-
         <button
           type="submit"
           className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all duration-200 hover:scale-105 hover:shadow-lg text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer"
@@ -98,10 +86,10 @@ const Login = ({ setCurrentPage, closeModal }: LoginProps) => {
         >
           {isLoading ? "Logging In..." : "Login"}
         </button>
-
         <p className="text-[13px] text-slate-800 mt-3">
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <button
+            type="button"
             className="font-medium text-black hover:text-black/80 underline cursor-pointer"
             onClick={() => {
               setCurrentPage("signup");
