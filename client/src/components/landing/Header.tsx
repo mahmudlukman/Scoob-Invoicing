@@ -10,6 +10,8 @@ import Login from "../../pages/auth/Login";
 import ForgotPassword from "../../pages/auth/ForgotPassword";
 import SignUp from "../../pages/auth/SignUp";
 import type { RootState } from "../../redux/store";
+import type { ServerError } from "../../@types";
+import toast from "react-hot-toast";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -32,10 +34,15 @@ const Header = () => {
 
   const handleLogout = async () => {
     try {
-      await logout({}).unwrap();
+      await logout().unwrap();
       navigate("/");
-    } catch (error) {
-      console.error("Logout failed", error);
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to logout.",
+      );
     }
   };
 

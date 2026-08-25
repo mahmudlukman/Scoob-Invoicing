@@ -7,7 +7,6 @@ const Testimonial = () => {
       id="testimonials"
       className="relative py-24 lg:py-32 bg-slate-50 overflow-hidden"
     >
-      {/* Premium subtle background glow accents to draw focus */}
       <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-blue-500/5 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-12 left-1/4 w-[500px] h-[500px] bg-sky-400/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute inset-0 bg-grid-slate-900/[0.015] bg-[size:40px_40px] pointer-events-none"></div>

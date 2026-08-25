@@ -1,27 +1,20 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-
-import {
-  userLoggedIn,
-  userLoggedOut,
-  setAuthInitialized,
-} from "../auth/authSlice";
-
+import { userLoggedIn, userLoggedOut } from "../auth/authSlice";
 import type {
   BaseQueryFn,
   FetchArgs,
   FetchBaseQueryError,
 } from "@reduxjs/toolkit/query";
-
-import type { User } from "../../../@types";
+import type { LoadUserResponse, RefreshTokenResponse } from "../../../@types";
 
 const baseQuery = fetchBaseQuery({
   baseUrl:
     import.meta.env.VITE_PUBLIC_SERVER_URI || "http://localhost:8000/api/v1/",
-
   credentials: "include",
 });
 
-
+// On a 401, try to refresh the access token via the refresh_token cookie
+// and retry the original request once. If refresh also fails, log out.
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,
@@ -29,30 +22,16 @@ const baseQueryWithReauth: BaseQueryFn<
 > = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
 
-  if (result.error && result.error.status === 401) {
+  if (result.error?.status === 401) {
     const refreshResult = await baseQuery(
-      {
-        url: "refresh-token",
-        method: "POST",
-        credentials: "include",
-      },
+      { url: "refresh-token", method: "POST" },
       api,
       extraOptions,
     );
 
     if (refreshResult.data) {
-      const refreshData = refreshResult.data as {
-        accessToken: string;
-        user: User;
-      };
-
-      api.dispatch(
-        userLoggedIn({
-          accessToken: refreshData.accessToken,
-          user: refreshData.user,
-        }),
-      );
-
+      const { accessToken, user } = refreshResult.data as RefreshTokenResponse;
+      api.dispatch(userLoggedIn({ accessToken, user }));
       result = await baseQuery(args, api, extraOptions);
     } else {
       api.dispatch(userLoggedOut());
@@ -64,70 +43,42 @@ const baseQueryWithReauth: BaseQueryFn<
 
 export const apiSlice = createApi({
   reducerPath: "api",
-
   tagTypes: ["User", "Invoice", "Customer", "Ai", "Analytics"],
-
   baseQuery: baseQueryWithReauth,
-
   endpoints: (builder) => ({
-    loadUser: builder.query<
-      {
-        accessToken?: string;
-        user: User;
-      },
-      void
-    >({
-      query: () => ({
-        url: "me",
-        method: "GET",
-        credentials: "include",
-      }),
-
+    // Checks for an existing session on app load (via the refresh cookie).
+    // userLoggedIn/userLoggedOut both set isInitialized: true, which is what
+    // PrivateRoute waits on before deciding whether to redirect.
+    loadUser: builder.query<LoadUserResponse, void>({
+      query: () => ({ url: "me", method: "GET" }),
       async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled;
-
           dispatch(
             userLoggedIn({
               accessToken: result.data.accessToken || "",
               user: result.data.user,
             }),
           );
-        } catch (error) {
-          console.error("loadUser error:", error);
-          dispatch(setAuthInitialized());
+        } catch {
+          dispatch(userLoggedOut());
         }
       },
-
       providesTags: ["User"],
     }),
 
-    refreshToken: builder.mutation<
-      {
-        accessToken: string;
-        user: User;
-      },
-      void
-    >({
-      query: () => ({
-        url: "refresh-token",
-        method: "POST",
-        credentials: "include",
-      }),
-
+    refreshToken: builder.mutation<RefreshTokenResponse, void>({
+      query: () => ({ url: "refresh-token", method: "POST" }),
       async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled;
-
           dispatch(
             userLoggedIn({
               accessToken: result.data.accessToken,
               user: result.data.user,
             }),
           );
-        } catch (error) {
-          console.error("refreshToken error:", error);
-
+        } catch {
           dispatch(userLoggedOut());
         }
       },

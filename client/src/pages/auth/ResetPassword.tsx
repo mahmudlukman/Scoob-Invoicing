@@ -84,6 +84,7 @@ const ResetPassword = () => {
             label="New Password"
             placeholder="Min 6 Characters"
             type="password"
+            disabled={isLoading || !!success}
           />
 
           <Input
@@ -92,17 +93,20 @@ const ResetPassword = () => {
             label="Confirm Password"
             placeholder="Re-enter your password"
             type="password"
+            disabled={isLoading || !!success}
           />
 
           {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
           {success && (
-            <p className="text-green-600 text-xs pb-2.5 py-2">{success}</p>
+            <p className="text-green-600 text-xs pb-2.5 py-2">
+              {success} Redirecting you shortly...
+            </p>
           )}
 
           <button
             type="submit"
             className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all duration-200 hover:scale-105 hover:shadow-lg text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLoading}
+            disabled={isLoading || !!success}
           >
             {isLoading ? "Resetting Password..." : "Reset Password"}
           </button>

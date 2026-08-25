@@ -8,6 +8,8 @@ import ProfileDropdown from "./ProfileDropdown";
 import { useSelector } from "react-redux";
 import { useLogoutMutation } from "../../redux/features/auth/authApi";
 import type { RootState } from "../../redux/store";
+import type { ServerError } from "../../@types";
+import toast from "react-hot-toast";
 
 interface NavigationItemType {
   id: string;
@@ -67,22 +69,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  /*
-   * Determine the active menu item directly from the current URL.
-   *
-   * Examples:
-   * /dashboard       -> dashboard
-   * /invoices        -> invoices
-   * /customers       -> customers
-   * /settings        -> settings
-   * /profile         -> profile
-   * /analytics       -> analytics
-   */
   const activeNavItem = location.pathname.split("/")[1] || "dashboard";
 
-  /*
-   * Handle responsive behaviour
-   */
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -103,9 +91,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
   }, []);
 
-  /*
-   * Close profile dropdown when clicking outside
-   */
   useEffect(() => {
     const handleClickOutside = () => {
       if (profileDropdownOpen) {
@@ -120,9 +105,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
   }, [profileDropdownOpen]);
 
-  /*
-   * Navigate to a menu item
-   */
   const handleNavigation = (itemId: string) => {
     navigate(`/${itemId}`);
 
@@ -131,34 +113,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
 
-  /*
-   * Toggle mobile sidebar
-   */
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  /*
-   * Logout
-   */
   const handleLogout = async () => {
     try {
-      await logout({}).unwrap();
+      await logout().unwrap();
       navigate("/");
-    } catch (error) {
-      console.error("Logout failed", error);
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to logout.",
+      );
     }
   };
 
-  /*
-   * Sidebar is currently never collapsed on desktop.
-   * Keeping this variable makes it easy to add collapse functionality later.
-   */
   const sidebarCollapsed = false;
 
-  /*
-   * Only show navigation items allowed for the user's role.
-   */
   const visibleMenuItems = NAVIGATION_MENU.filter((item) =>
     item.visible.some((role) => role === user?.role),
   );

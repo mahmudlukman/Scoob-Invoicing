@@ -50,7 +50,7 @@ const SettingsPage = () => {
     if (!canConfirmDelete) return;
     try {
       await deleteAccount({ password: deletePassword }).unwrap();
-      await logout({}).unwrap();
+      await logout().unwrap();
       navigate("/");
     } catch (err: unknown) {
       const serverError = err as ServerError;
@@ -66,7 +66,7 @@ const SettingsPage = () => {
     if (!deactivatePassword) return;
     try {
       await deactivateAccount({ password: deactivatePassword }).unwrap();
-      await logout({}).unwrap();
+      await logout().unwrap();
       navigate("/");
     } catch (err: unknown) {
       const serverError = err as ServerError;

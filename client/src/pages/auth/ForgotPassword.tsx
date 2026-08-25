@@ -48,7 +48,7 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
           onChange={({ target }) => setEmail(target.value)}
           label="Email Address"
           placeholder="john@example.com"
-          type="text"
+          type="email"
         />
 
         {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}

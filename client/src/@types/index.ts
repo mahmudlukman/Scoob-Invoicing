@@ -10,6 +10,11 @@ export interface LoadUserResponse {
   accessToken: string;
 }
 
+export interface RefreshTokenResponse {
+  accessToken: string;
+  user: User;
+}
+
 export interface BusinessLogo {
   public_id: string;
   url: string;

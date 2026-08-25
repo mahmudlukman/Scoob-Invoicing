@@ -123,19 +123,19 @@ export const NAVIGATION_MENU = [
     visible: ["user", "admin"] as const,
   },
   {
-    id: "invoices/new",
+    id: "create-invoice",
     name: "Create Invoice",
     icon: Plus,
     visible: ["user", "admin"] as const,
   },
   {
-    id: "Customers",
+    id: "customers",
     name: "Customers",
     icon: HandPlatter,
     visible: ["user", "admin"] as const,
   },
   {
-    id: "invoice/customize",
+    id: "customize-invoice",
     name: "Customize Invoice",
     icon: Sparkles,
     visible: ["user", "admin"] as const,
