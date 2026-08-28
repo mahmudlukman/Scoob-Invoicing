@@ -132,19 +132,75 @@ interface IActivationRequest {
   activation_token: string;
 }
 
+// export const activateUser = catchAsyncError(
+//   async (req: Request, res: Response, next: NextFunction) => {
+//     const { activation_token } = req.body as IActivationRequest;
+//     if (!activation_token) {
+//       return next(new ErrorHandler("Please provide activation token", 400));
+//     }
+
+//     let decoded: { user: ICreateUser; purpose: string };
+//     try {
+//       decoded = jwt.verify(
+//         activation_token,
+//         config.ACTIVATION_SECRET as string,
+//       ) as { user: ICreateUser; purpose: string };
+//     } catch (error: any) {
+//       if (error.name === "TokenExpiredError") {
+//         return next(
+//           new ErrorHandler(
+//             "Activation link has expired. Please sign up again.",
+//             400,
+//           ),
+//         );
+//       }
+//       return next(new ErrorHandler("Invalid activation token", 400));
+//     }
+
+//     if (decoded.purpose !== "activation") {
+//       return next(new ErrorHandler("Invalid activation token", 400));
+//     }
+
+//     const { name, email, password } = decoded.user;
+
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) {
+//       return next(new ErrorHandler("User already exist", 400));
+//     }
+
+//     const newUser = new User({ name, email, password });
+//     newUser.$locals.skipHash = true;
+//     await newUser.save();
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Email verified & user created successfully",
+//     });
+//   },
+// );
+
 export const activateUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const { activation_token } = req.body as IActivationRequest;
+
     if (!activation_token) {
       return next(new ErrorHandler("Please provide activation token", 400));
     }
 
-    let decoded: { user: ICreateUser; purpose: string };
+    let decoded: {
+      user: ICreateUser;
+      purpose: string;
+    };
+
+    // Verify activation token
     try {
       decoded = jwt.verify(
         activation_token,
         config.ACTIVATION_SECRET as string,
-      ) as { user: ICreateUser; purpose: string };
+      ) as {
+        user: ICreateUser;
+        purpose: string;
+      };
     } catch (error: any) {
       if (error.name === "TokenExpiredError") {
         return next(
@@ -154,6 +210,7 @@ export const activateUser = catchAsyncError(
           ),
         );
       }
+
       return next(new ErrorHandler("Invalid activation token", 400));
     }
 
@@ -163,16 +220,44 @@ export const activateUser = catchAsyncError(
 
     const { name, email, password } = decoded.user;
 
+    // Prevent duplicate account creation
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return next(new ErrorHandler("User already exist", 400));
     }
 
-    const newUser = new User({ name, email, password });
+    // Create the user
+    const newUser = new User({
+      name,
+      email,
+      password,
+    });
+
     newUser.$locals.skipHash = true;
+
     await newUser.save();
 
-    res.status(201).json({
+    try {
+      const siteUrl = config.FRONTEND_URL;
+
+      await sendMail({
+        email: newUser.email,
+        subject: "Welcome to Skoob Invoice 🎉",
+        template: "welcome-mail.ejs",
+        data: {
+          user: {
+            name: newUser.name,
+          },
+          siteUrl,
+        },
+      });
+    } catch (error: any) {
+      // Log the email failure without failing account activation.
+      console.error(`Failed to send welcome email to ${newUser.email}:`, error);
+    }
+
+    return res.status(201).json({
       success: true,
       message: "Email verified & user created successfully",
     });
