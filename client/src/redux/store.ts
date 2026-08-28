@@ -15,10 +15,6 @@ export const store = configureStore({
     getDefaultMiddleware().concat(apiSlice.middleware),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Initialize Authentication                                                  */
-/* -------------------------------------------------------------------------- */
-
 const initializeApp = async () => {
   try {
     await store.dispatch(
@@ -33,9 +29,6 @@ const initializeApp = async () => {
 
 initializeApp();
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export type RootState = ReturnType<typeof store.getState>;
 

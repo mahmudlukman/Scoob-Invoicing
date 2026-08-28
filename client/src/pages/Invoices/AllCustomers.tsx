@@ -20,6 +20,7 @@ import {
 import type { Customer } from "../../redux/features/customer/customerApi";
 import type { ServerError } from "../../@types";
 import toast from "react-hot-toast";
+import Tooltip from "../../components/ui/Tooltip";
 
 interface CustomerFormState {
   clientName: string;
@@ -315,27 +316,31 @@ const AllCustomers = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="small"
-                            variant="ghost"
-                            aria-label="Edit Customer"
-                            onClick={() => handleOpenEdit(customer)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="ghost"
-                            aria-label="Delete Customer"
-                            onClick={() =>
-                              setDeleteModal({
-                                open: true,
-                                customerId: customer._id,
-                              })
-                            }
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
+                          <Tooltip text="Edit" position="top">
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              aria-label="Edit Customer"
+                              onClick={() => handleOpenEdit(customer)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip text="Delete" position="top">
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              aria-label="Delete Customer"
+                              onClick={() =>
+                                setDeleteModal({
+                                  open: true,
+                                  customerId: customer._id,
+                                })
+                              }
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </Tooltip>
                         </div>
                       </td>
                     </tr>

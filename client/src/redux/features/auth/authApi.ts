@@ -42,8 +42,6 @@ type ResetPasswordData = {
   newPassword: string;
 };
 
-// loadUser and refreshToken live on apiSlice (features/api/apiSlice.ts),
-// not here — import useLoadUserQuery from there.
 
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({

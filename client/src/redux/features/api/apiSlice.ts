@@ -46,9 +46,6 @@ export const apiSlice = createApi({
   tagTypes: ["User", "Invoice", "Customer", "Ai", "Analytics"],
   baseQuery: baseQueryWithReauth,
   endpoints: (builder) => ({
-    // Checks for an existing session on app load (via the refresh cookie).
-    // userLoggedIn/userLoggedOut both set isInitialized: true, which is what
-    // PrivateRoute waits on before deciding whether to redirect.
     loadUser: builder.query<LoadUserResponse, void>({
       query: () => ({ url: "me", method: "GET" }),
       async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
