@@ -15,7 +15,7 @@ export const validateUserRegistration = [
     .not()
     .isEmpty()
     .withMessage("Password is Missing!")
-    .isLength({ min: 8, max: 20 })
+    .isLength({ min: 6, max: 20 })
     .withMessage("Password must be 8 to 20 characters Long!"),
 ];
 
@@ -26,7 +26,7 @@ export const validateUserLogin = [
 
 export const validateChangePassword = [
   check("newPassword")
-    .isLength({ min: 8 })
+    .isLength({ min: 6 })
     .withMessage("New password must be at least 8 characters"),
 ];
 
