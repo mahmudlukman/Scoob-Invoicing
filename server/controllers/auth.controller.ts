@@ -239,8 +239,6 @@ export const activateUser = catchAsyncError(
     await newUser.save();
 
     try {
-      const siteUrl = config.FRONTEND_URL;
-
       await sendMail({
         email: newUser.email,
         subject: "Welcome to Skoob Invoice 🎉",
@@ -249,7 +247,7 @@ export const activateUser = catchAsyncError(
           user: {
             name: newUser.name,
           },
-          siteUrl,
+          siteUrl: config.FRONTEND_URL,
         },
       });
     } catch (error: any) {
@@ -257,10 +255,7 @@ export const activateUser = catchAsyncError(
       console.error(`Failed to send welcome email to ${newUser.email}:`, error);
     }
 
-    return res.status(201).json({
-      success: true,
-      message: "Email verified & user created successfully",
-    });
+    sendToken(newUser, 201, res);
   },
 );
 

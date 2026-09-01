@@ -122,9 +122,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* One Paid / Unpaid pair per currency actually in use.
-            Most users only ever see one currency here, so this looks
-            identical to the old fixed 3-card layout in the common case. */}
         {stats.currencyBreakdown.map((c) => (
           <React.Fragment key={c.code}>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg shadow-gray-100">

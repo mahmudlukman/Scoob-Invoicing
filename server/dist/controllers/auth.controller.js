@@ -155,7 +155,6 @@ exports.activateUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, 
     newUser.$locals.skipHash = true;
     await newUser.save();
     try {
-        const siteUrl = config_1.default.FRONTEND_URL;
         await (0, sendMail_1.default)({
             email: newUser.email,
             subject: "Welcome to Skoob Invoice 🎉",
@@ -164,7 +163,7 @@ exports.activateUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, 
                 user: {
                     name: newUser.name,
                 },
-                siteUrl,
+                siteUrl: config_1.default.FRONTEND_URL,
             },
         });
     }
@@ -172,10 +171,7 @@ exports.activateUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, 
         // Log the email failure without failing account activation.
         console.error(`Failed to send welcome email to ${newUser.email}:`, error);
     }
-    return res.status(201).json({
-        success: true,
-        message: "Email verified & user created successfully",
-    });
+    (0, jwtToken_1.sendToken)(newUser, 201, res);
 });
 exports.loginUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const { email, password } = req.body;

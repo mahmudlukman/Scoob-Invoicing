@@ -19,7 +19,8 @@ const Activation = () => {
 
     try {
       const result = await activation({ activation_token }).unwrap();
-      toast.success(result.message || "Account activated successfully");
+      toast.success("Account activated successfully");
+      void result;
     } catch (err: unknown) {
       const serverError = err as ServerError;
       const errorMessage =
@@ -31,6 +32,16 @@ const Activation = () => {
   useEffect(() => {
     onSubmit();
   }, [onSubmit]);
+
+  // Auto-redirect to the dashboard once activation + auto-login succeed
+  useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => {
+        navigate("/dashboard");
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, navigate]);
 
   const handleRedirect = () => {
     navigate("/");
@@ -97,13 +108,13 @@ const Activation = () => {
               Activation Successful!
             </p>
             <p className="text-gray-600">
-              Your account has been activated. You can now log in and start using the platform.
+              You're logged in — taking you to your dashboard...
             </p>
             <button
-              onClick={handleRedirect}
+              onClick={() => navigate("/dashboard")}
               className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-950 to-blue-900 hover:from-blue-900 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-lg"
             >
-              Go to Login
+              Go to Dashboard Now
             </button>
           </div>
         ) : (

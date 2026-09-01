@@ -17,6 +17,12 @@ type ActivationData = {
   activation_token: string;
 };
 
+type ActivationResponse = {
+  success: boolean;
+  accessToken: string;
+  user: User;
+};
+
 type ResendActivationData = {
   activation_token: string;
 };
@@ -42,7 +48,6 @@ type ResetPasswordData = {
   newPassword: string;
 };
 
-
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     register: builder.mutation<RegistrationResponse, RegistrationData>({
@@ -61,15 +66,25 @@ export const authApi = apiSlice.injectEndpoints({
       },
     }),
 
-    activation: builder.mutation<
-      { success: boolean; message: string },
-      ActivationData
-    >({
+    activation: builder.mutation<ActivationResponse, ActivationData>({
       query: ({ activation_token }) => ({
         url: "activate-user",
         method: "POST",
         body: { activation_token },
       }),
+      async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          dispatch(
+            userLoggedIn({
+              accessToken: result.data.accessToken,
+              user: result.data.user,
+            }),
+          );
+        } catch (error: unknown) {
+          console.log(error);
+        }
+      },
     }),
 
     resendActivation: builder.mutation<
