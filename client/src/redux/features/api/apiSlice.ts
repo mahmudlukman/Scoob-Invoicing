@@ -13,8 +13,6 @@ const baseQuery = fetchBaseQuery({
   credentials: "include",
 });
 
-// On a 401, try to refresh the access token via the refresh_token cookie
-// and retry the original request once. If refresh also fails, log out.
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,

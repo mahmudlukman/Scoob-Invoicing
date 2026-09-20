@@ -117,16 +117,8 @@ const AmountCell = ({ invoice }: { invoice: Invoice }) => {
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/*                              Main Component                                */
-/* -------------------------------------------------------------------------- */
-
 const AllInvoices = () => {
   const navigate = useNavigate();
-
-  /* ------------------------------------------------------------------------ */
-  /*                               API Hooks                                  */
-  /* ------------------------------------------------------------------------ */
 
   const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
 
@@ -174,10 +166,6 @@ const AllInvoices = () => {
     invoiceId: null,
   });
 
-  /* ------------------------------------------------------------------------ */
-  /*                              Invoice Data                                */
-  /* ------------------------------------------------------------------------ */
-
   const invoices = useMemo(() => {
     return invoicesData?.invoices || [];
   }, [invoicesData]);
@@ -202,10 +190,6 @@ const AllInvoices = () => {
       );
   }, [invoices, searchTerm, statusFilter]);
 
-  /* ------------------------------------------------------------------------ */
-  /*                              Delete Invoice                              */
-  /* ------------------------------------------------------------------------ */
-
   const handleDelete = async () => {
     if (!deleteModal.invoiceId) return;
 
@@ -229,10 +213,6 @@ const AllInvoices = () => {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                            Duplicate Invoice                             */
-  /* ------------------------------------------------------------------------ */
-
   const handleDuplicate = async (invoice: Invoice) => {
     setDuplicateLoading(invoice._id);
 
@@ -255,18 +235,10 @@ const AllInvoices = () => {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                           Reminder Modal                                 */
-  /* ------------------------------------------------------------------------ */
-
   const handleOpenReminderModel = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId);
     setIsReminderModalOpen(true);
   };
-
-  /* ------------------------------------------------------------------------ */
-  /*                           Full Payment                                   */
-  /* ------------------------------------------------------------------------ */
 
   const handleFullPayment = async (invoice: Invoice) => {
     setFullPaymentLoadingId(invoice._id);
@@ -294,20 +266,12 @@ const AllInvoices = () => {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                           Partial Payment                                */
-  /* ------------------------------------------------------------------------ */
-
   const handleOpenPartialPayment = (invoice: Invoice) => {
     setLogPaymentModal({
       open: true,
       invoice,
     });
   };
-
-  /* ------------------------------------------------------------------------ */
-  /*                              Loading State                               */
-  /* ------------------------------------------------------------------------ */
 
   if (isLoading) {
     return (
@@ -316,10 +280,6 @@ const AllInvoices = () => {
       </div>
     );
   }
-
-  /* ------------------------------------------------------------------------ */
-  /*                               Error State                                */
-  /* ------------------------------------------------------------------------ */
 
   if (isError) {
     return (
@@ -341,16 +301,8 @@ const AllInvoices = () => {
     );
   }
 
-  /* ------------------------------------------------------------------------ */
-  /*                                Render                                    */
-  /* ------------------------------------------------------------------------ */
-
   return (
     <div className="space-y-6">
-      {/* ------------------------------------------------------------------ */}
-      {/* Modals                                                              */}
-      {/* ------------------------------------------------------------------ */}
-
       <CreateWithAIModel
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
@@ -375,10 +327,6 @@ const AllInvoices = () => {
         balanceDue={logPaymentModal.invoice?.balanceDue ?? 0}
       />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Page Header                                                         */}
-      {/* ------------------------------------------------------------------ */}
-
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -399,21 +347,13 @@ const AllInvoices = () => {
             Create with AI
           </Button>
 
-          <Button onClick={() => navigate("/invoices/new")} icon={Plus}>
+          <Button onClick={() => navigate("/create-invoice")} icon={Plus}>
             Create Invoice
           </Button>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Invoice Container                                                   */}
-      {/* ------------------------------------------------------------------ */}
-
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
-        {/* ---------------------------------------------------------------- */}
-        {/* Filters                                                           */}
-        {/* ---------------------------------------------------------------- */}
-
         <div className="p-4 sm:p-6 border-b border-slate-200">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
@@ -461,10 +401,6 @@ const AllInvoices = () => {
           </div>
         </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Empty State                                                       */}
-        {/* ---------------------------------------------------------------- */}
-
         {filteredInvoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -488,10 +424,6 @@ const AllInvoices = () => {
           </div>
         ) : (
           <>
-            {/* ============================================================ */}
-            {/* Mobile Cards                                                  */}
-            {/* ============================================================ */}
-
             <div className="md:hidden divide-y divide-slate-100 bg-slate-50/50">
               {filteredInvoices.map((invoice) => (
                 <div
@@ -607,10 +539,6 @@ const AllInvoices = () => {
                 </div>
               ))}
             </div>
-
-            {/* ============================================================ */}
-            {/* Desktop Table                                                 */}
-            {/* ============================================================ */}
 
             <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200">
@@ -796,10 +724,6 @@ const AllInvoices = () => {
           </>
         )}
       </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Delete Confirmation Modal                                          */}
-      {/* ------------------------------------------------------------------ */}
 
       {deleteModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
