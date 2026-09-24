@@ -9,12 +9,8 @@ import { UserRole } from "../models/User";
 
 const analyticsRouter = express.Router();
 
-analyticsRouter.get(
-  "/analytics",
-  isAuthenticated,
-  requireActiveAccount,
-  authorizeRoles(UserRole.ADMIN),
-  getAnalytics,
-);
+analyticsRouter.use(isAuthenticated, requireActiveAccount);
+
+analyticsRouter.get("/analytics", authorizeRoles(UserRole.ADMIN), getAnalytics);
 
 export default analyticsRouter;

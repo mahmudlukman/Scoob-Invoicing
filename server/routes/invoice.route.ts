@@ -1,5 +1,5 @@
 import express from "express";
-import { isAuthenticated } from "../middleware/auth";
+import { isAuthenticated, requireActiveAccount } from "../middleware/auth";
 import {
   addPayment,
   createInvoice,
@@ -15,63 +15,38 @@ import {
   updateInvoicePreferences,
 } from "../controllers/invoice.controller";
 import { invoiceWriteLimiter } from "../utils/rateLimiter";
+
 const invoiceRouter = express.Router();
 
+invoiceRouter.use(isAuthenticated, requireActiveAccount);
 
-invoiceRouter.post(
-  "/create-invoice",
-  isAuthenticated,
-  invoiceWriteLimiter,
-  createInvoice,
-);
-invoiceRouter.get("/invoices", isAuthenticated, getInvoices);
-invoiceRouter.get("/invoice/:id", isAuthenticated, getInvoiceById);
-invoiceRouter.put(
-  "/update-invoice/:id",
-  isAuthenticated,
-  invoiceWriteLimiter,
-  updateInvoice,
-);
+invoiceRouter.post("/create-invoice", invoiceWriteLimiter, createInvoice);
+invoiceRouter.get("/invoices", getInvoices);
+invoiceRouter.get("/invoice/:id", getInvoiceById);
+invoiceRouter.put("/update-invoice/:id", invoiceWriteLimiter, updateInvoice);
 invoiceRouter.post(
   "/duplicate-invoice/:id",
-  isAuthenticated,
   invoiceWriteLimiter,
   duplicateInvoice,
 );
 
-invoiceRouter.get(
-  "/invoice-preferences",
-  isAuthenticated,
-  getInvoicePreferences,
-);
+invoiceRouter.get("/invoice-preferences", getInvoicePreferences);
 invoiceRouter.patch(
   "/update-invoice-preferences",
-  isAuthenticated,
   invoiceWriteLimiter,
   updateInvoicePreferences,
 );
-invoiceRouter.get("/income-by-month", isAuthenticated, getIncomeByMonth);
+invoiceRouter.get("/income-by-month", getIncomeByMonth);
 
-invoiceRouter.delete(
-  "/delete-invoice/:id",
-  isAuthenticated,
-  invoiceWriteLimiter,
-  deleteInvoice,
-);
+invoiceRouter.delete("/delete-invoice/:id", invoiceWriteLimiter, deleteInvoice);
 
-invoiceRouter.post(
-  "/invoices/:id/payments",
-  isAuthenticated,
-  invoiceWriteLimiter,
-  addPayment,
-);
+invoiceRouter.post("/invoices/:id/payments", invoiceWriteLimiter, addPayment);
 
 invoiceRouter.delete(
   "/invoices/:id/payments/:paymentId",
-  isAuthenticated,
   invoiceWriteLimiter,
   deletePayment,
 );
-invoiceRouter.post("/send-receipt/:id", isAuthenticated, sendReceipt);
+invoiceRouter.post("/send-receipt/:id", sendReceipt);
 
 export default invoiceRouter;

@@ -5,13 +5,15 @@ import {
   getCustomers,
   updateCustomer,
 } from "../controllers/customer.controller";
-import { isAuthenticated } from "../middleware/auth";
+import { isAuthenticated, requireActiveAccount } from "../middleware/auth";
 
 const customerRouter = express.Router();
 
-customerRouter.post("/create-customer", isAuthenticated, createCustomer);
-customerRouter.get("/customers", isAuthenticated, getCustomers);
-customerRouter.put("/update-customer/:id", isAuthenticated, updateCustomer);
-customerRouter.delete("/delete-customer/:id", isAuthenticated, deleteCustomer);
+customerRouter.use(isAuthenticated, requireActiveAccount);
+
+customerRouter.post("/create-customer", createCustomer);
+customerRouter.get("/customers", getCustomers);
+customerRouter.put("/update-customer/:id", updateCustomer);
+customerRouter.delete("/delete-customer/:id", deleteCustomer);
 
 export default customerRouter;

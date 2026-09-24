@@ -25,20 +25,14 @@ import {
 
 const userRouter = express.Router();
 
-userRouter.get("/me", isAuthenticated, requireActiveAccount, getMe);
+userRouter.use(isAuthenticated, requireActiveAccount);
 
-userRouter.put(
-  "/update-user-password",
-  isAuthenticated,
-  requireActiveAccount,
-  updatePasswordLimiter,
-  updatePassword,
-);
+userRouter.get("/me", getMe);
+
+userRouter.put("/update-user-password", updatePasswordLimiter, updatePassword);
 
 userRouter.get(
   "/get-user/:id",
-  isAuthenticated,
-  requireActiveAccount,
   authorizeRoles(UserRole.ADMIN),
   adminListLimiter,
   getUserById,
@@ -46,50 +40,28 @@ userRouter.get(
 
 userRouter.get(
   "/get-users",
-  isAuthenticated,
-  requireActiveAccount,
   authorizeRoles(UserRole.ADMIN),
   adminListLimiter,
   getAllUsers,
 );
 
-userRouter.put(
-  "/update-user-profile",
-  isAuthenticated,
-  requireActiveAccount,
-  uploadLimiter,
-  updateUserProfile,
-);
+userRouter.put("/update-user-profile", uploadLimiter, updateUserProfile);
 
 userRouter.put(
   "/update-user-status",
-  isAuthenticated,
-  requireActiveAccount,
   authorizeRoles(UserRole.ADMIN),
   updateUserStatus,
 );
 
 userRouter.delete(
   "/delete-user/:id",
-  isAuthenticated,
-  requireActiveAccount,
   authorizeRoles(UserRole.ADMIN),
   deleteUser,
 );
 
-userRouter.delete(
-  "/delete-account",
-  isAuthenticated,
-  requireActiveAccount,
-  deleteAccount,
-);
+userRouter.delete("/delete-account", deleteAccount);
 
-userRouter.patch(
-  "/deactivate-account",
-  isAuthenticated,
-  requireActiveAccount,
-  deactivateAccount,
-);
+userRouter.patch("/deactivate-account", deactivateAccount);
 
 userRouter.patch("/reactivate-account", isAuthenticated, reactivateAccount);
 
