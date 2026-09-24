@@ -8,6 +8,7 @@ import {
   duplicateInvoice,
   getIncomeByMonth,
   getInvoiceById,
+  getInvoicePreferences,
   getInvoices,
   sendReceipt,
   updateInvoice,
@@ -15,6 +16,7 @@ import {
 } from "../controllers/invoice.controller";
 import { invoiceWriteLimiter } from "../utils/rateLimiter";
 const invoiceRouter = express.Router();
+
 
 invoiceRouter.post(
   "/create-invoice",
@@ -35,6 +37,12 @@ invoiceRouter.post(
   isAuthenticated,
   invoiceWriteLimiter,
   duplicateInvoice,
+);
+
+invoiceRouter.get(
+  "/invoice-preferences",
+  isAuthenticated,
+  getInvoicePreferences,
 );
 invoiceRouter.patch(
   "/update-invoice-preferences",

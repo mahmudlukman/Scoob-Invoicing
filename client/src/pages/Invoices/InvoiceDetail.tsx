@@ -275,7 +275,7 @@ const InvoiceDetail = () => {
       <div className="bg-slate-100 rounded-xl p-2 sm:p-6 overflow-hidden shadow-md border border-slate-200 print:shadow-none print:border-none print:p-0 print:bg-white">
         <div
           ref={containerRef}
-          className="rounded-lg overflow-hidden bg-white print:overflow-visible print:w-auto"
+          className="rounded-lg overflow-hidden bg-white print:overflow-visible print:w-auto print:!h-auto"
           style={{ width: "100%" }}
         >
           <div
@@ -336,9 +336,9 @@ const InvoiceDetail = () => {
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
-            {payments.map((payment: Payment) => (
+            {payments.map((payment: Payment, idx: number) => (
               <div
-                key={payment._id}
+                key={payment._id || payment._id || `payment-${idx}`}
                 className="p-4 sm:px-6 flex items-center justify-between gap-3"
               >
                 <div className="min-w-0">
@@ -377,8 +377,16 @@ const InvoiceDetail = () => {
 
       {/* Delete Payment Confirmation */}
       {deletePaymentModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() =>
+            setDeletePaymentModal({ open: false, paymentId: null })
+          }
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <h3 className="text-lg font-semibold text-slate-900">
                 Remove Payment

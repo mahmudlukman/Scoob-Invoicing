@@ -71,6 +71,14 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
+    getInvoicePreferences: builder.query({
+      query: () => ({
+        url: "invoice-preferences",
+        method: "GET",
+        credentials: "include" as const,
+      }),
+      providesTags: [{ type: "Invoice", id: "LIST" }],
+    }),
     updateInvoicePreferences: builder.mutation({
       query: (data) => ({
         url: "/update-invoice-preferences",
@@ -143,6 +151,7 @@ export const {
   useGetInvoiceQuery,
   useUpdateInvoiceMutation,
   useDuplicateInvoiceMutation,
+  useGetInvoicePreferencesQuery,
   useUpdateInvoicePreferencesMutation,
   useGetIncomeByMonthQuery,
   useDeleteInvoiceMutation,

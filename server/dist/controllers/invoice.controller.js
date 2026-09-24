@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendReceipt = exports.deletePayment = exports.addPayment = exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
+exports.sendReceipt = exports.deletePayment = exports.addPayment = exports.deleteInvoice = exports.getIncomeByMonth = exports.updateInvoicePreferences = exports.getInvoicePreferences = exports.duplicateInvoice = exports.updateInvoice = exports.getInvoiceById = exports.getInvoices = exports.createInvoice = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const catchAsyncErrors_1 = require("../middleware/catchAsyncErrors");
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
@@ -14,6 +14,16 @@ const currencies_1 = require("../utils/currencies");
 const sendMail_1 = __importDefault(require("../utils/sendMail"));
 const formatCurrency_1 = require("../utils/formatCurrency");
 const User_1 = __importDefault(require("../models/User"));
+// @desc    Update invoice preferences
+// @route   PATCH /api/v1/update-invoice-preferences
+// @access  Private
+const ALLOWED_ITEM_LABEL_KEYS = [
+    "name",
+    "quantity",
+    "unitPrice",
+    "taxPercent",
+];
+const MAX_LABEL_LENGTH = 24;
 const ALLOWED_MANUAL_STATUSES = ["Paid", "Unpaid", "Pending"];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const validateAndComputeTotals = (items, next) => {
@@ -95,17 +105,14 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         await invoice.save();
     }
     catch (err) {
-        // Surface duplicate invoiceNumber as a clean 400 instead of a raw 500
         if (err?.code === 11000) {
             return next(new errorHandler_1.default("An invoice with this number already exists", 400));
         }
         throw err;
     }
-    // Only save/update the customer record if the user opted in
     if (saveCustomer && billTo?.clientName) {
         try {
             if (billTo.email) {
-                // Upsert by email so re-checking the box on a repeat client updates their info
                 await Customer_1.default.findOneAndUpdate({ user: user?._id, email: billTo.email }, {
                     user: user?._id,
                     clientName: billTo.clientName,
@@ -115,7 +122,6 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
                 }, { upsert: true, new: true, setDefaultsOnInsert: true });
             }
             else {
-                // No email to key off of — just create a new customer record
                 await Customer_1.default.create({
                     user: user?._id,
                     clientName: billTo.clientName,
@@ -125,7 +131,6 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
             }
         }
         catch (err) {
-            // Don't fail invoice creation just because customer save had an issue
             console.error("Failed to save customer:", err);
         }
     }
@@ -209,10 +214,6 @@ exports.updateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
             return;
         totalsUpdate = { items, ...totals };
     }
-    // Apply field + totals updates FIRST, so any status logic below sees the
-    // up-to-date total rather than a stale one. Previously this ran before
-    // the totals were applied when items were included, which could leave
-    // a "Paid" request as "Partial" after new items changed the total.
     Object.assign(invoice, {
         ...(invoiceNumber !== undefined && { invoiceNumber }),
         ...(invoiceDate !== undefined && { invoiceDate }),
@@ -223,15 +224,10 @@ exports.updateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
         ...(paymentTerms !== undefined && { paymentTerms }),
         ...totalsUpdate,
     });
-    // Status handling now runs whenever `status` is present, regardless of
-    // whether `items` was also sent — previously this whole block was
-    // skipped if items were included, which let the "can't mark Unpaid
-    // with existing payments" guard be bypassed just by sending items too.
     if (status !== undefined) {
         const currentAmountPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
         const total = invoice.total || 0;
         if (status === "Paid" && currentAmountPaid < total) {
-            // Log the remaining balance as a manual payment so the payment trail stays accurate
             invoice.payments.push({
                 amount: total - currentAmountPaid,
                 date: new Date(),
@@ -296,12 +292,6 @@ exports.duplicateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, r
     const originalDigits = prefixMatch ? prefixMatch[2].length : 3;
     const padLength = Math.max(originalDigits, String(maxNumber + 1).length);
     const newInvoiceNumber = prefix + String(maxNumber + 1).padStart(padLength, "0");
-    // NOTE: computing the next number this way (max + 1) has a race condition
-    // if two duplicate/create requests land concurrently for the same user —
-    // both can compute the same number. A proper fix needs an atomic
-    // per-user counter (e.g. a Counter collection + findOneAndUpdate with
-    // $inc), which is a bigger change than a one-line patch, so it's left
-    // as a known limitation here rather than guessed at.
     const duplicate = new Invoice_1.default({
         user: req.user?._id,
         invoiceNumber: newInvoiceNumber,
@@ -315,7 +305,7 @@ exports.duplicateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, r
         subtotal: original.subtotal,
         taxTotal: original.taxTotal,
         total: original.total,
-        currency: original.currency, // was previously missing — duplicates fell back to default currency
+        currency: original.currency,
         status: "Unpaid",
     });
     try {
@@ -335,11 +325,25 @@ exports.duplicateInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, r
 // --------------------------------------------------
 // Invoice preferences
 // --------------------------------------------------
-// @desc    Update invoice preferences
-// @route   PATCH /api/v1/update-invoice-preferences
+// @desc    Get the logged-in user's invoice preferences
+// @route   GET /api/v1/settings/invoice-preferences
+// @access  Private
+exports.getInvoicePreferences = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
+    const user = await User_1.default.findById(req.user?._id).select("invoicePreferences");
+    if (!user)
+        return next(new errorHandler_1.default("User not found", 404));
+    res
+        .status(200)
+        .json({ success: true, invoicePreferences: user.invoicePreferences });
+});
+// --------------------------------------------------
+// Update invoice preferences
+// --------------------------------------------------
+// @desc    Update invoice preferences (template, palette, item field labels)
+// @route   PATCH /api/v1/settings/update-invoice-preferences
 // @access  Private
 exports.updateInvoicePreferences = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
-    const { templateId, paletteId, colorPalette } = req.body;
+    const { templateId, paletteId, colorPalette, itemLabels } = req.body;
     const updates = {};
     if (templateId !== undefined)
         updates["invoicePreferences.templateId"] = templateId;
@@ -357,6 +361,24 @@ exports.updateInvoicePreferences = (0, catchAsyncErrors_1.catchAsyncError)(async
         if (colorPalette.background !== undefined) {
             updates["invoicePreferences.colorPalette.background"] =
                 colorPalette.background;
+        }
+    }
+    if (itemLabels !== undefined) {
+        if (typeof itemLabels !== "object" || itemLabels === null) {
+            return next(new errorHandler_1.default("itemLabels must be an object", 400));
+        }
+        for (const key of Object.keys(itemLabels)) {
+            if (!ALLOWED_ITEM_LABEL_KEYS.includes(key)) {
+                return next(new errorHandler_1.default(`Unknown item label key: ${key}. Allowed keys: ${ALLOWED_ITEM_LABEL_KEYS.join(", ")}`, 400));
+            }
+            const value = itemLabels[key];
+            if (typeof value !== "string" || !value.trim()) {
+                return next(new errorHandler_1.default(`Label for "${key}" must be a non-empty string`, 400));
+            }
+            if (value.length > MAX_LABEL_LENGTH) {
+                return next(new errorHandler_1.default(`Label for "${key}" must be ${MAX_LABEL_LENGTH} characters or fewer`, 400));
+            }
+            updates[`invoicePreferences.itemLabels.${key}`] = value.trim();
         }
     }
     if (Object.keys(updates).length === 0) {
@@ -382,12 +404,6 @@ exports.getIncomeByMonth = (0, catchAsyncErrors_1.catchAsyncError)(async (req, r
     const year = Number(req.query.year) || currentYear;
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year + 1, 0, 1);
-    // NOTE: this groups by `createdAt` (when the invoice was created), not
-    // by when it was actually paid. An invoice created in January but paid
-    // in March currently shows as January income. If cash-basis reporting
-    // is the intent, this needs a `paidAt` field set when status flips to
-    // "Paid" (or the last payment's date) to group on instead — left
-    // unchanged here since that's a schema/product decision, not a bug fix.
     const rawIncomeByMonth = await Invoice_1.default.aggregate([
         {
             $match: {

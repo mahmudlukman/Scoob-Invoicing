@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import InputField from "../../components/ui/InputField";
 import Button from "../../components/ui/Button";
@@ -20,6 +20,7 @@ import {
   getCurrencyByCode,
   SUPPORTED_CURRENCIES,
 } from "../../utils/currencies";
+import { DEFAULT_ITEM_LABELS, type ItemLabels } from "../../@types";
 import type { RootState } from "../../redux/store";
 
 interface CreateInvoiceProps {
@@ -43,12 +44,21 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     user?.defaultCurrency?.code || "NGN",
   );
 
+  const isInitialized = useRef(false);
+
   const currencySymbol = useMemo(
     () => getCurrencyByCode(currencyCode).symbol,
     [currencyCode],
   );
 
-  // Initialize form data with fallback values to ensure controlled inputs
+  const itemLabels: ItemLabels = useMemo(
+    () => ({
+      ...DEFAULT_ITEM_LABELS,
+      ...user?.invoicePreferences?.itemLabels,
+    }),
+    [user?.invoicePreferences?.itemLabels],
+  );
+
   const initialFormData = useMemo(() => {
     const aiData = location.state?.aiData;
 
@@ -97,36 +107,44 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
           }),
         ) || baseData.items;
 
-      // NEW — respect the currency the AI parse actually used
       if (aiData.currency) {
         baseData.currency = aiData.currency;
       }
     }
 
     return baseData;
-  }, [existingInvoice, location.state, user]);
+  }, [
+    existingInvoice,
+    location.state?.aiData,
+    user?.businessName,
+    user?.email,
+    user?.address,
+    user?.phone,
+  ]);
 
   const [formData, setFormData] = useState<InvoiceFormData>(initialFormData);
   const [isGeneratingNumber, setIsGeneratingNumber] =
     useState(!existingInvoice);
 
-  // Auto-fill form data if initialFormData changes asynchronously (e.g., when user profile loads)
+  // Sync initial state once when background user profile finishes loading
   useEffect(() => {
-    setFormData(initialFormData);
-    if (initialFormData.currency?.code) {
-      setCurrencyCode(initialFormData.currency.code);
+    if (!isInitialized.current && (user || existingInvoice)) {
+      setFormData(initialFormData);
+      if (initialFormData.currency?.code) {
+        setCurrencyCode(initialFormData.currency.code);
+      }
+      isInitialized.current = true;
     }
-  }, [initialFormData]);
+  }, [initialFormData, user, existingInvoice]);
 
-  // Generate sequence invoice numbers based on existing records
+  // Sequence number generation
   useEffect(() => {
-    if (!existingInvoice && !formData.invoiceNumber) {
+    if (!existingInvoice && !formData.invoiceNumber && invoicesData) {
       setIsGeneratingNumber(true);
       try {
         const invoices = invoicesData?.invoices || [];
         let maxNum = 0;
         invoices.forEach((inv) => {
-          // Robust parsing to catch variations in naming or missing fields
           if (inv.invoiceNumber && inv.invoiceNumber.includes("-")) {
             const num = parseInt(inv.invoiceNumber.split("-")[1], 10);
             if (!isNaN(num) && num > maxNum) maxNum = num;
@@ -156,7 +174,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     const { name, value } = e.target;
 
     if (section) {
-      // If editing billTo after a customer was selected, treat it as a divergence
       if (section === "billTo" && selectedCustomerId) {
         setSelectedCustomerId("");
       }
@@ -194,32 +211,32 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   };
 
   const handleAddItem = () => {
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       items: [
-        ...formData.items,
+        ...prev.items,
         { name: "", quantity: 1, unitPrice: 0, taxPercent: 0 },
       ],
-    });
+    }));
   };
 
   const handleRemoveItem = (index: number) => {
-    // Keep at least one item row active
     if (formData.items.length === 1) {
       toast.error("An invoice must contain at least one item.");
       return;
     }
-    const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData({ ...formData, items: newItems });
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index),
+    }));
   };
 
   const handleCustomerSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const customerId = e.target.value;
     setSelectedCustomerId(customerId);
-    setSaveCustomer(false); // reset — picking an existing customer means nothing new to save
+    setSaveCustomer(false);
 
     if (!customerId) {
-      // "+ New customer" selected — clear the Bill To fields
       setFormData((prev) => ({
         ...prev,
         billTo: { clientName: "", email: "", address: "", phone: "" },
@@ -241,7 +258,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     }
   };
 
-  // Perform accurate calculations, ensuring fallbacks handle empty string states during typing
   const { subtotal, taxTotal, total } = useMemo(() => {
     let subtotal = 0,
       taxTotal = 0;
@@ -260,7 +276,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Final clean up and typing compliance check before server submission
     const itemsWithTotal = formData.items.map((item) => {
       const qty = Number(item.quantity) || 0;
       const price = Number(item.unitPrice) || 0;
@@ -306,11 +321,10 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
     }
   };
 
-  // Helper utility to safely manage view layer numbers and fallback strings smoothly
   const formatCurrencyValue = (val: number) => {
     const integerPart = Math.trunc(val);
     const formattedInteger = addThousandsSeparator(integerPart);
-    const decimalPart = val.toFixed(2).split(".")[1];
+    const decimalPart = Math.abs(val).toFixed(2).split(".")[1];
     return `${formattedInteger}.${decimalPart}`;
   };
 
@@ -417,7 +431,6 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         <div className="bg-white p-6 rounded-lg shadow-sm shadow-gray-100 border border-slate-200 space-y-4">
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To</h3>
 
-          {/* Customer dropdown */}
           {customers.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -494,7 +507,8 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
         <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50">
           <h3 className="text-lg font-semibold text-slate-900">Items</h3>
         </div>
-        {/* Mobile: stacked cards (one per item) */}
+
+        {/* Mobile: stacked cards */}
         <div className="md:hidden divide-y divide-slate-200">
           {formData.items.map((item, index) => {
             const qty = Number(item.quantity) || 0;
@@ -507,7 +521,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                      Item
+                      {itemLabels.name}
                     </label>
                     <input
                       type="text"
@@ -515,7 +529,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                       required
                       value={item.name}
                       onChange={(e) => handleInputChange(e, undefined, index)}
-                      placeholder="Item name"
+                      placeholder={itemLabels.name}
                       className="w-full h-11 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -531,7 +545,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
 
                 <div>
                   <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                    Price
+                    {itemLabels.unitPrice}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
@@ -555,7 +569,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                      Qty
+                      {itemLabels.quantity}
                     </label>
                     <input
                       type="number"
@@ -571,7 +585,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                      Tax (%)
+                      {itemLabels.taxPercent}
                     </label>
                     <input
                       type="number"
@@ -606,16 +620,16 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Item
+                  {itemLabels.name}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">
-                  Qty
+                  {itemLabels.quantity}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-44">
-                  Price
+                  {itemLabels.unitPrice}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-28">
-                  Tax (%)
+                  {itemLabels.taxPercent}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-36">
                   Total
@@ -639,7 +653,7 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
                         required
                         value={item.name}
                         onChange={(e) => handleInputChange(e, undefined, index)}
-                        placeholder="Item name"
+                        placeholder={itemLabels.name}
                         className="w-full h-10 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </td>

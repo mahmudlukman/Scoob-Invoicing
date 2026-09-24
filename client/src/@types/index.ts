@@ -31,6 +31,7 @@ export interface InvoicePreferences {
   templateId: string;
   paletteId: string;
   colorPalette: InvoiceColorPalette;
+  itemLabels: ItemLabels;
 }
 
 export interface Currency {
@@ -126,3 +127,17 @@ export interface InvoiceFormData {
 }
 
 export type InvoiceTemplateData = Invoice | InvoiceFormData;
+
+export interface ItemLabels {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+  taxPercent: string;
+}
+
+export const DEFAULT_ITEM_LABELS: ItemLabels = {
+  name: "Item",
+  quantity: "Qty",
+  unitPrice: "Price",
+  taxPercent: "Tax (%)",
+};

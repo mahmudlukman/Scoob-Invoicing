@@ -19,10 +19,18 @@ interface InvoiceColorPalette {
   background: string;
 }
 
+interface ItemLabels {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+  taxPercent: string;
+}
+
 interface InvoicePreferences {
   templateId: string;
   paletteId: string;
   colorPalette: InvoiceColorPalette;
+  itemLabels: ItemLabels;
 }
 
 export interface IUser extends Document {
@@ -113,6 +121,12 @@ const UserSchema: Schema<IUser> = new Schema(
         primary: { type: String, default: "#16A34A" },
         secondary: { type: String, default: "#15803D" },
         background: { type: String, default: "#F0FDF4" },
+      },
+      itemLabels: {
+        name: { type: String, default: "Item" },
+        quantity: { type: String, default: "Qty" },
+        unitPrice: { type: String, default: "Price" },
+        taxPercent: { type: String, default: "Tax (%)" },
       },
     },
     passwordChangedAt: Date,

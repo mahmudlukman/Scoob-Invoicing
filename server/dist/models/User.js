@@ -113,6 +113,12 @@ const UserSchema = new mongoose_1.Schema({
             secondary: { type: String, default: "#15803D" },
             background: { type: String, default: "#F0FDF4" },
         },
+        itemLabels: {
+            name: { type: String, default: "Item" },
+            quantity: { type: String, default: "Qty" },
+            unitPrice: { type: String, default: "Price" },
+            taxPercent: { type: String, default: "Tax (%)" },
+        },
     },
     passwordChangedAt: Date,
     resetPasswordToken: String,

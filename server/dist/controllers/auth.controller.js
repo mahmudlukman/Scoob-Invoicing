@@ -81,46 +81,6 @@ const createActivationToken = (user) => {
     return jsonwebtoken_1.default.sign({ user, purpose: "activation" }, config_1.default.ACTIVATION_SECRET, { expiresIn: "5m" });
 };
 exports.createActivationToken = createActivationToken;
-// export const activateUser = catchAsyncError(
-//   async (req: Request, res: Response, next: NextFunction) => {
-//     const { activation_token } = req.body as IActivationRequest;
-//     if (!activation_token) {
-//       return next(new ErrorHandler("Please provide activation token", 400));
-//     }
-//     let decoded: { user: ICreateUser; purpose: string };
-//     try {
-//       decoded = jwt.verify(
-//         activation_token,
-//         config.ACTIVATION_SECRET as string,
-//       ) as { user: ICreateUser; purpose: string };
-//     } catch (error: any) {
-//       if (error.name === "TokenExpiredError") {
-//         return next(
-//           new ErrorHandler(
-//             "Activation link has expired. Please sign up again.",
-//             400,
-//           ),
-//         );
-//       }
-//       return next(new ErrorHandler("Invalid activation token", 400));
-//     }
-//     if (decoded.purpose !== "activation") {
-//       return next(new ErrorHandler("Invalid activation token", 400));
-//     }
-//     const { name, email, password } = decoded.user;
-//     const existingUser = await User.findOne({ email });
-//     if (existingUser) {
-//       return next(new ErrorHandler("User already exist", 400));
-//     }
-//     const newUser = new User({ name, email, password });
-//     newUser.$locals.skipHash = true;
-//     await newUser.save();
-//     res.status(201).json({
-//       success: true,
-//       message: "Email verified & user created successfully",
-//     });
-//   },
-// );
 exports.activateUser = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const { activation_token } = req.body;
     if (!activation_token) {
