@@ -8,6 +8,7 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const catchAsyncErrors_1 = require("../middleware/catchAsyncErrors");
 const Customer_1 = __importDefault(require("../models/Customer"));
 const errorHandler_1 = __importDefault(require("../utils/errorHandler"));
+const invoiceHelper_1 = require("../utils/invoiceHelper");
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail = (email) => {
     if (typeof email !== "string" || email.trim() === "")
@@ -61,10 +62,32 @@ exports.createCustomer = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res
 // @route   GET /api/v1/customers
 // @access  Private
 exports.getCustomers = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
-    const customers = await Customer_1.default.find({ user: req.user?._id }).sort({
-        clientName: 1,
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 20));
+    const skipAmount = (page - 1) * pageSize;
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const filter = { user: req.user?._id };
+    if (search) {
+        const regex = new RegExp((0, invoiceHelper_1.escapeRegex)(search), "i");
+        filter.$or = [{ clientName: regex }, { email: regex }];
+    }
+    const [customers, totalCustomers] = await Promise.all([
+        Customer_1.default.find(filter)
+            .sort({ clientName: 1 })
+            .skip(skipAmount)
+            .limit(pageSize),
+        Customer_1.default.countDocuments(filter),
+    ]);
+    res.status(200).json({
+        success: true,
+        customers,
+        pagination: {
+            currentPage: page,
+            pageSize,
+            totalItems: totalCustomers,
+            totalPages: Math.ceil(totalCustomers / pageSize),
+        },
     });
-    res.status(200).json({ success: true, customers });
 });
 // @desc    Update a customer
 // @route   PUT /api/v1/update-customer/:id

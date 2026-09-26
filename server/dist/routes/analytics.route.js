@@ -8,5 +8,6 @@ const auth_1 = require("../middleware/auth");
 const analytics_controller_1 = require("../controllers/analytics.controller");
 const User_1 = require("../models/User");
 const analyticsRouter = express_1.default.Router();
-analyticsRouter.get("/analytics", auth_1.isAuthenticated, auth_1.requireActiveAccount, (0, auth_1.authorizeRoles)(User_1.UserRole.ADMIN), analytics_controller_1.getAnalytics);
+analyticsRouter.use(auth_1.isAuthenticated, auth_1.requireActiveAccount);
+analyticsRouter.get("/analytics", (0, auth_1.authorizeRoles)(User_1.UserRole.ADMIN), analytics_controller_1.getAnalytics);
 exports.default = analyticsRouter;

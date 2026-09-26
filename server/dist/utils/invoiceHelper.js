@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.computeStatusFromPayments = exports.getInvoiceComputedFields = void 0;
+exports.computeStatusFromPayments = exports.getInvoiceComputedFields = exports.escapeRegex = void 0;
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+exports.escapeRegex = escapeRegex;
 const getInvoiceComputedFields = (invoice) => {
     const amountPaid = (invoice.payments || []).reduce((sum, p) => sum + p.amount, 0);
     const total = invoice.total || 0;

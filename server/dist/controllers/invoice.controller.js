@@ -142,17 +142,36 @@ exports.createInvoice = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res,
 // @desc        Get all invoices of logged-in user
 // @route       GET /api/v1/invoices
 // @access      Private
+// @desc        Get all invoices of logged-in user
+// @route       GET /api/v1/invoices
+// @access      Private
 exports.getInvoices = (0, catchAsyncErrors_1.catchAsyncError)(async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 20));
     const skipAmount = (page - 1) * pageSize;
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const statusParam = typeof req.query.status === "string" ? req.query.status.trim() : "";
+    const filter = { user: req.user?._id };
+    if (statusParam && statusParam !== "All") {
+        if (!ALLOWED_MANUAL_STATUSES.includes(statusParam)) {
+            return next(new errorHandler_1.default(`Invalid status filter: ${statusParam}`, 400));
+        }
+        filter.status = statusParam;
+    }
+    if (search) {
+        const regex = new RegExp((0, invoiceHelper_1.escapeRegex)(search), "i");
+        filter.$or = [{ invoiceNumber: regex }, { "billTo.clientName": regex }];
+    }
     const [invoices, totalInvoices] = await Promise.all([
-        Invoice_1.default.find({ user: req.user?._id })
+        Invoice_1.default.find(filter)
             .populate("user", "name email")
             .skip(skipAmount)
             .limit(pageSize)
-            .sort({ createdAt: -1 }),
-        Invoice_1.default.countDocuments({ user: req.user?._id }),
+            // Sorting by invoiceDate here (rather than createdAt) so ordering is
+            // consistent with what the frontend list previously re-sorted by
+            // client-side — that client-side re-sort is now removed.
+            .sort({ invoiceDate: -1 }),
+        Invoice_1.default.countDocuments(filter),
     ]);
     const invoicesWithComputed = invoices.map((invoice) => {
         const computed = (0, invoiceHelper_1.getInvoiceComputedFields)(invoice);
