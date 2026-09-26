@@ -253,10 +253,7 @@ export const getInvoices = catchAsyncError(
         .populate("user", "name email")
         .skip(skipAmount)
         .limit(pageSize)
-        // Sorting by invoiceDate here (rather than createdAt) so ordering is
-        // consistent with what the frontend list previously re-sorted by
-        // client-side — that client-side re-sort is now removed.
-        .sort({ invoiceDate: -1 }),
+        .sort({ createdAt: -1 }),
       Invoice.countDocuments(filter),
     ]);
 
