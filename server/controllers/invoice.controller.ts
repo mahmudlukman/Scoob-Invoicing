@@ -37,7 +37,7 @@ interface ComputedTotals {
   total: number;
 }
 
-const ALLOWED_MANUAL_STATUSES = ["Paid", "Unpaid", "Pending"] as const;
+const ALLOWED_MANUAL_STATUSES = ["Paid", "Partially Paid", "Unpaid", "Pending"] as const;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

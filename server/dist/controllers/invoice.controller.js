@@ -24,7 +24,7 @@ const ALLOWED_ITEM_LABEL_KEYS = [
     "taxPercent",
 ];
 const MAX_LABEL_LENGTH = 24;
-const ALLOWED_MANUAL_STATUSES = ["Paid", "Unpaid", "Pending"];
+const ALLOWED_MANUAL_STATUSES = ["Paid", "Partially Paid", "Unpaid", "Pending"];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const validateAndComputeTotals = (items, next) => {
     if (!Array.isArray(items) || items.length === 0) {
