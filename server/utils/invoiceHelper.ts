@@ -1,5 +1,8 @@
 import { IInvoice } from "../models/Invoice";
 
+export const escapeRegex = (str: string): string =>
+  str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const getInvoiceComputedFields = (invoice: IInvoice) => {
   const amountPaid = (invoice.payments || []).reduce(
     (sum, p) => sum + p.amount,

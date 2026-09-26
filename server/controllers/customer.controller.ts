@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { catchAsyncError } from "../middleware/catchAsyncErrors";
 import Customer from "../models/Customer";
 import ErrorHandler from "../utils/errorHandler";
+import { escapeRegex } from "../utils/invoiceHelper";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,10 +72,41 @@ export const createCustomer = catchAsyncError(
 // @access  Private
 export const getCustomers = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const customers = await Customer.find({ user: req.user?._id }).sort({
-      clientName: 1,
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(req.query.pageSize as string) || 20),
+    );
+    const skipAmount = (page - 1) * pageSize;
+
+    const search =
+      typeof req.query.search === "string" ? req.query.search.trim() : "";
+
+    const filter: Record<string, unknown> = { user: req.user?._id };
+
+    if (search) {
+      const regex = new RegExp(escapeRegex(search), "i");
+      filter.$or = [{ clientName: regex }, { email: regex }];
+    }
+
+    const [customers, totalCustomers] = await Promise.all([
+      Customer.find(filter)
+        .sort({ clientName: 1 })
+        .skip(skipAmount)
+        .limit(pageSize),
+      Customer.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      customers,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalItems: totalCustomers,
+        totalPages: Math.ceil(totalCustomers / pageSize),
+      },
     });
-    res.status(200).json({ success: true, customers });
   },
 );
 

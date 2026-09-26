@@ -28,7 +28,7 @@ interface CurrencyStats {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
+  const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery({});
 
   const invoices = React.useMemo(() => {
     return invoicesData?.invoices || [];

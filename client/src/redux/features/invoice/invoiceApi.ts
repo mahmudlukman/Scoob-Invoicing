@@ -27,6 +27,13 @@ interface DeletePaymentPayload {
   paymentId: string;
 }
 
+export interface PaginationMeta {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export const userApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createInvoice: builder.mutation({
@@ -38,10 +45,22 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "Invoice", id: "LIST" }],
     }),
-    getAllInvoices: builder.query<{ invoices: Invoice[] }, void>({
-      query: () => ({
+    getAllInvoices: builder.query<
+      { invoices: Invoice[]; pagination: PaginationMeta },
+      { page?: number; pageSize?: number; search?: string; status?: string },
+      void
+    >({
+      query: (params) => ({
         url: "invoices",
         method: "GET",
+        params: {
+          page: params?.page ?? 1,
+          pageSize: params?.pageSize ?? 20,
+          ...(params?.search ? { search: params.search } : {}),
+          ...(params?.status && params.status !== "All"
+            ? { status: params.status }
+            : {}),
+        },
         credentials: "include" as const,
       }),
       providesTags: [{ type: "Invoice", id: "LIST" }],

@@ -6,6 +6,7 @@ import Invoice, { IItem } from "../models/Invoice";
 import Customer from "../models/Customer";
 import {
   computeStatusFromPayments,
+  escapeRegex,
   getInvoiceComputedFields,
 } from "../utils/invoiceHelper";
 import { getCurrencyByCode } from "../utils/currencies";
@@ -210,6 +211,9 @@ export const createInvoice = catchAsyncError(
 // @desc        Get all invoices of logged-in user
 // @route       GET /api/v1/invoices
 // @access      Private
+// @desc        Get all invoices of logged-in user
+// @route       GET /api/v1/invoices
+// @access      Private
 export const getInvoices = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -219,13 +223,41 @@ export const getInvoices = catchAsyncError(
     );
     const skipAmount = (page - 1) * pageSize;
 
+    const search =
+      typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const statusParam =
+      typeof req.query.status === "string" ? req.query.status.trim() : "";
+
+    const filter: Record<string, unknown> = { user: req.user?._id };
+
+    if (statusParam && statusParam !== "All") {
+      if (
+        !ALLOWED_MANUAL_STATUSES.includes(
+          statusParam as (typeof ALLOWED_MANUAL_STATUSES)[number],
+        )
+      ) {
+        return next(
+          new ErrorHandler(`Invalid status filter: ${statusParam}`, 400),
+        );
+      }
+      filter.status = statusParam;
+    }
+
+    if (search) {
+      const regex = new RegExp(escapeRegex(search), "i");
+      filter.$or = [{ invoiceNumber: regex }, { "billTo.clientName": regex }];
+    }
+
     const [invoices, totalInvoices] = await Promise.all([
-      Invoice.find({ user: req.user?._id })
+      Invoice.find(filter)
         .populate("user", "name email")
         .skip(skipAmount)
         .limit(pageSize)
-        .sort({ createdAt: -1 }),
-      Invoice.countDocuments({ user: req.user?._id }),
+        // Sorting by invoiceDate here (rather than createdAt) so ordering is
+        // consistent with what the frontend list previously re-sorted by
+        // client-side — that client-side re-sort is now removed.
+        .sort({ invoiceDate: -1 }),
+      Invoice.countDocuments(filter),
     ]);
 
     const invoicesWithComputed = invoices.map((invoice) => {

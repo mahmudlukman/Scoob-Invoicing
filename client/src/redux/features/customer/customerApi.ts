@@ -1,4 +1,5 @@
 import { apiSlice } from "../api/apiSlice";
+import type { PaginationMeta } from "../invoice/invoiceApi";
 
 export interface Customer {
   _id: string;
@@ -31,6 +32,7 @@ interface CustomerResponse {
 interface CustomersListResponse {
   success: boolean;
   customers: Customer[];
+  pagination: PaginationMeta;
 }
 
 export const customerApi = apiSlice.injectEndpoints({
@@ -45,10 +47,18 @@ export const customerApi = apiSlice.injectEndpoints({
       invalidatesTags: [{ type: "Customer", id: "LIST" }],
     }),
 
-    getCustomers: builder.query<CustomersListResponse, void>({
-      query: () => ({
+    getCustomers: builder.query<
+      CustomersListResponse,
+      { page?: number; pageSize?: number; search?: string } | void
+    >({
+      query: (params) => ({
         url: "customers",
         method: "GET",
+        params: {
+          page: params?.page ?? 1,
+          pageSize: params?.pageSize ?? 20,
+          ...(params?.search ? { search: params.search } : {}),
+        },
         credentials: "include" as const,
       }),
       providesTags: (result) =>

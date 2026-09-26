@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -11,6 +11,7 @@ import {
 import { format } from "date-fns";
 
 import Button from "../../components/ui/Button";
+import Pagination from "../../components/ui/Pagination";
 
 import {
   useGetAllInvoicesQuery,
@@ -31,9 +32,8 @@ import InvoiceActionsDropdown from "../../components/invoices/InvoiceActionsDrop
 import { addThousandsSeparator } from "../../utils/helper";
 import toast from "react-hot-toast";
 
-/* -------------------------------------------------------------------------- */
-/*                               Helper Components                            */
-/* -------------------------------------------------------------------------- */
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const getStatusDisplay = (invoice: Invoice) => {
   if (invoice.status === "Paid") {
@@ -120,7 +120,41 @@ const AmountCell = ({ invoice }: { invoice: Invoice }) => {
 const AllInvoices = () => {
   const navigate = useNavigate();
 
-  const { data: invoicesData, isLoading, isError } = useGetAllInvoicesQuery();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const {
+    data: invoicesData,
+    isLoading,
+    isFetching,
+    isError,
+  } = useGetAllInvoicesQuery({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    status: statusFilter,
+  });
 
   const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
 
@@ -128,19 +162,12 @@ const AllInvoices = () => {
 
   const [addPayment] = useAddPaymentMutation();
 
-  /* ------------------------------------------------------------------------ */
-  /*                              Local State                                 */
-  /* ------------------------------------------------------------------------ */
 
   const [duplicateLoading, setDuplicateLoading] = useState<string | null>(null);
 
   const [fullPaymentLoadingId, setFullPaymentLoadingId] = useState<
     string | null
   >(null);
-
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const [statusFilter, setStatusFilter] = useState("All");
 
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
@@ -170,25 +197,13 @@ const AllInvoices = () => {
     return invoicesData?.invoices || [];
   }, [invoicesData]);
 
-  const filteredInvoices = useMemo(() => {
-    return invoices
-      .filter(
-        (invoice) => statusFilter === "All" || invoice.status === statusFilter,
-      )
-      .filter(
-        (invoice) =>
-          invoice.invoiceNumber
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (invoice.billTo.clientName ?? "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime(),
-      );
-  }, [invoices, searchTerm, statusFilter]);
+  const pagination = invoicesData?.pagination;
+
+  const hasNoInvoicesAtAll =
+    invoices.length === 0 &&
+    !debouncedSearch &&
+    statusFilter === "All" &&
+    (pagination?.totalItems ?? 0) === 0;
 
   const handleDelete = async () => {
     if (!deleteModal.invoiceId) return;
@@ -366,7 +381,7 @@ const AllInvoices = () => {
                 type="text"
                 placeholder="Search by invoice # or client..."
                 value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                onChange={handleSearchChange}
                 className="
                   w-full h-10 pl-10 pr-4 py-2
                   border border-slate-200 rounded-lg
@@ -389,7 +404,7 @@ const AllInvoices = () => {
                   focus:ring-2 focus:ring-blue-500
                 "
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={handleStatusFilterChange}
               >
                 <option value="All">All Statuses</option>
                 <option value="Paid">Paid</option>
@@ -401,7 +416,7 @@ const AllInvoices = () => {
           </div>
         </div>
 
-        {filteredInvoices.length === 0 ? (
+        {invoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
               <FileText className="w-8 h-8 text-slate-400" />
@@ -416,7 +431,7 @@ const AllInvoices = () => {
               adjusting your search.
             </p>
 
-            {invoices.length === 0 && (
+            {hasNoInvoicesAtAll && (
               <Button onClick={() => navigate("/invoices/new")} icon={Plus}>
                 Create First Invoice
               </Button>
@@ -424,8 +439,12 @@ const AllInvoices = () => {
           </div>
         ) : (
           <>
-            <div className="md:hidden divide-y divide-slate-100 bg-slate-50/50">
-              {filteredInvoices.map((invoice) => (
+            <div
+              className={`md:hidden divide-y divide-slate-100 bg-slate-50/50 ${
+                isFetching ? "opacity-60" : ""
+              }`}
+            >
+              {invoices.map((invoice) => (
                 <div
                   key={invoice._id}
                   className="
@@ -540,7 +559,11 @@ const AllInvoices = () => {
               ))}
             </div>
 
-            <div className="hidden md:block overflow-x-auto">
+            <div
+              className={`hidden md:block overflow-x-auto ${
+                isFetching ? "opacity-60" : ""
+              }`}
+            >
               <table className="min-w-full divide-y divide-slate-200">
                 {/* Table Header */}
                 <thead className="bg-slate-50">
@@ -619,7 +642,7 @@ const AllInvoices = () => {
 
                 {/* Table Body */}
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {filteredInvoices.map((invoice) => (
+                  {invoices.map((invoice) => (
                     <tr key={invoice._id} className="hover:bg-slate-50">
                       {/* Invoice Number */}
                       <td
@@ -721,6 +744,20 @@ const AllInvoices = () => {
                 </tbody>
               </table>
             </div>
+
+            {pagination && pagination.totalPages > 1 && (
+              <div
+                className={`px-4 py-4 border-t border-slate-200 ${
+                  isFetching ? "opacity-60 pointer-events-none" : ""
+                }`}
+              >
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </>
         )}
       </div>

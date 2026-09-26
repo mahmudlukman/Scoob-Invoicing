@@ -32,13 +32,13 @@ const CreateInvoice = ({ existingInvoice, onSave }: CreateInvoiceProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { data: customersData } = useGetCustomersQuery();
+  const { data: customersData } = useGetCustomersQuery({ pageSize: 1000 });
   const customers = customersData?.customers || [];
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [saveCustomer, setSaveCustomer] = useState(false);
 
-  const { data: invoicesData } = useGetAllInvoicesQuery();
+  const { data: invoicesData } = useGetAllInvoicesQuery({ pageSize: 1000 });
   const [createInvoice, { isLoading: isCreating }] = useCreateInvoiceMutation();
   const [currencyCode, setCurrencyCode] = useState(
     user?.defaultCurrency?.code || "NGN",

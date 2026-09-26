@@ -8,6 +8,7 @@ import Modal from "../ui/Modal";
 import { toast } from "react-hot-toast";
 import { useParseInvoiceFromTextMutation } from "../../redux/features/ai/aiApi";
 import type { RootState } from "../../redux/store";
+import type { ServerError } from "../../@types";
 
 interface CreateWithAIModelProps {
   isOpen: boolean;
@@ -33,12 +34,15 @@ const CreateWithAIModel = ({ isOpen, onClose }: CreateWithAIModelProps) => {
       const response = await parseInvoice({ text }).unwrap();
       toast.success("Invoice data extracted successfully!");
       onClose();
-      setText(""); // Reset text after successful generation
-      // Navigate to create invoice page with the parsed data
-      navigate("/invoices/new", { state: { aiData: response } });
-    } catch (error) {
-      toast.error("Failed to generate invoice from text.");
-      console.error("AI parsing error:", error);
+      setText("");
+      navigate("/create-invoice", { state: { aiData: response } });
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to generate invoice from text",
+      );
     }
   };
 

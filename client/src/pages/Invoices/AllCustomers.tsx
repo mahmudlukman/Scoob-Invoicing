@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Edit,
@@ -11,6 +11,7 @@ import {
 import Button from "../../components/ui/Button";
 import InputField from "../../components/ui/InputField";
 import TextareaField from "../../components/ui/TextareaField";
+import Pagination from "../../components/ui/Pagination";
 import {
   useGetCustomersQuery,
   useUpdateCustomerMutation,
@@ -21,6 +22,9 @@ import type { Customer } from "../../redux/features/customer/customerApi";
 import type { ServerError } from "../../@types";
 import toast from "react-hot-toast";
 import Tooltip from "../../components/ui/Tooltip";
+
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 400;
 
 interface CustomerFormState {
   clientName: string;
@@ -37,15 +41,38 @@ const emptyCustomerForm: CustomerFormState = {
 };
 
 const AllCustomers = () => {
-  const { data: customersData, isLoading, isError } = useGetCustomersQuery();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const {
+    data: customersData,
+    isLoading,
+    isFetching,
+    isError,
+  } = useGetCustomersQuery({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+  });
+
   const [updateCustomer, { isLoading: isUpdating }] =
     useUpdateCustomerMutation();
   const [deleteCustomer, { isLoading: isDeleting }] =
     useDeleteCustomerMutation();
   const [createCustomer, { isLoading: isCreating }] =
     useCreateCustomerMutation();
-
-  const [searchTerm, setSearchTerm] = useState("");
 
   const [editModal, setEditModal] = useState<{
     open: boolean;
@@ -62,17 +89,20 @@ const AllCustomers = () => {
     customerId: string | null;
   }>({ open: false, customerId: null });
 
+  // The server now does the searching/sorting — this is just the current
+  // page of an already-filtered result set.
   const customers = useMemo(() => {
     return customersData?.customers || [];
   }, [customersData]);
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter(
-      (customer) =>
-        customer.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (customer.email ?? "").toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [customers, searchTerm]);
+  const pagination = customersData?.pagination;
+
+  // Distinguishes "you have zero customers, period" from "no results for
+  // this search" — only the former gets the "Add First Customer" CTA.
+  const hasNoCustomersAtAll =
+    customers.length === 0 &&
+    !debouncedSearch &&
+    (pagination?.totalItems ?? 0) === 0;
 
   const handleOpenEdit = (customer: Customer) => {
     setFormState({
@@ -126,6 +156,9 @@ const AllCustomers = () => {
       await createCustomer(formState).unwrap();
       toast.success("Customer created successfully");
       setCreateModalOpen(false);
+      // Jump back to page 1 so the person can actually see the customer
+      // they just added, rather than staying on whatever page they were on.
+      setCurrentPage(1);
     } catch (err: unknown) {
       const serverError = err as ServerError;
       toast.error(
@@ -204,13 +237,13 @@ const AllCustomers = () => {
               type="text"
               placeholder="Search by name or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full h-10 pl-10 pr-4 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
 
-        {filteredCustomers.length === 0 ? (
+        {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-slate-400" />
@@ -219,11 +252,11 @@ const AllCustomers = () => {
               No customers found
             </h3>
             <p className="text-slate-500 mb-6 max-w-md">
-              {customers.length === 0
+              {hasNoCustomersAtAll
                 ? "You haven't saved any customers yet. Add one to get started."
                 : "Your search did not match any customers. Try adjusting your search."}
             </p>
-            {customers.length === 0 && (
+            {hasNoCustomersAtAll && (
               <Button onClick={handleOpenCreate} icon={Plus}>
                 Add First Customer
               </Button>
@@ -232,8 +265,12 @@ const AllCustomers = () => {
         ) : (
           <>
             {/* Mobile: stacked cards (below md) */}
-            <div className="md:hidden divide-y divide-slate-200">
-              {filteredCustomers.map((customer) => (
+            <div
+              className={`md:hidden divide-y divide-slate-200 ${
+                isFetching ? "opacity-60" : ""
+              }`}
+            >
+              {customers.map((customer) => (
                 <div key={customer._id} className="p-4 space-y-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
@@ -277,7 +314,11 @@ const AllCustomers = () => {
             </div>
 
             {/* Desktop/tablet: table (md and up) */}
-            <div className="hidden md:block overflow-x-auto">
+            <div
+              className={`hidden md:block overflow-x-auto ${
+                isFetching ? "opacity-60" : ""
+              }`}
+            >
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50">
                   <tr>
@@ -300,7 +341,7 @@ const AllCustomers = () => {
                 </thead>
 
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {filteredCustomers.map((customer) => (
+                  {customers.map((customer) => (
                     <tr key={customer._id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                         {customer.clientName}
@@ -348,6 +389,20 @@ const AllCustomers = () => {
                 </tbody>
               </table>
             </div>
+
+            {pagination && pagination.totalPages > 1 && (
+              <div
+                className={`px-4 py-4 border-t border-slate-200 ${
+                  isFetching ? "opacity-60 pointer-events-none" : ""
+                }`}
+              >
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </>
         )}
       </div>

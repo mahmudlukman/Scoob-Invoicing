@@ -8,7 +8,11 @@ import { useUpdateInvoicePreferencesMutation } from "../../redux/features/invoic
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
 import { COLOR_PALETTES, PREVIEW_INVOICE, TEMPLATES } from "../../utils/data";
 import type { RootState } from "../../redux/store";
-import { DEFAULT_ITEM_LABELS, type ItemLabels } from "../../@types";
+import {
+  DEFAULT_ITEM_LABELS,
+  type ItemLabels,
+  type ServerError,
+} from "../../@types";
 
 const TARGET_INVOICE_WIDTH = 750;
 
@@ -22,10 +26,8 @@ const CustomizeInvoice = () => {
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Active Control Panel Tab State
   const [activeTab, setActiveTab] = useState<ActiveTab>("template");
 
-  // State initialization
   const [selectedTemplate, setSelectedTemplate] = useState<string>(
     () => user?.invoicePreferences?.templateId ?? "01",
   );
@@ -42,14 +44,13 @@ const CustomizeInvoice = () => {
 
   const [previewScale, setPreviewScale] = useState(1);
 
-  // Purely dynamic scaling observer without layout-thrashing DOM height overrides
   useEffect(() => {
     const container = previewContainerRef.current;
     if (!container) return;
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const availableWidth = entry.contentRect.width - 32; // Include padding buffer
+        const availableWidth = entry.contentRect.width - 32;
         if (availableWidth > 0) {
           const calculatedScale = Math.min(
             1,
@@ -94,8 +95,13 @@ const CustomizeInvoice = () => {
       }).unwrap();
       toast.success("Preferences saved successfully!");
       navigate(-1);
-    } catch {
-      toast.error("Failed to save preferences. Please try again.");
+    } catch (err: unknown) {
+      const serverError = err as ServerError;
+      toast.error(
+        serverError?.data?.message ||
+          serverError?.message ||
+          "Failed to save preferences. Please try again later!",
+      );
     }
   };
 
