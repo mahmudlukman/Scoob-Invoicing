@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { addThousandsSeparator } from "../../utils/helper";
-import { getPaymentInfo, getStatusColor, getCurrencySymbol } from "../../utils/invoiceHelpers";
-import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
+import {
+  getPaymentInfo,
+  getStatusColor,
+  getCurrencySymbol,
+} from "../../utils/invoiceHelpers";
+import type {
+  InvoiceTemplateData,
+  InvoiceItem,
+  ItemLabels,
+} from "../../@types";
+import { DEFAULT_ITEM_LABELS } from "../../@types";
 
 const DEFAULT_THEME = ["#EFF6FF", "#1D4ED8", "#DBEAFE", "#1E40AF", "#0F172A"];
 
@@ -9,12 +18,14 @@ interface InvoiceTemplateTwoProps {
   invoice: InvoiceTemplateData;
   colorPalette?: string[];
   containerWidth: number;
+  itemLabels?: ItemLabels;
 }
 
 const TemplateTwo = ({
   invoice,
   colorPalette,
   containerWidth,
+  itemLabels = DEFAULT_ITEM_LABELS,
 }: InvoiceTemplateTwoProps) => {
   const themeColors =
     (colorPalette ?? []).length > 0 ? colorPalette! : DEFAULT_THEME;
@@ -224,7 +235,8 @@ const TemplateTwo = ({
             </p>
             {isPartiallyPaid && (
               <p className="text-[10px] mt-1" style={{ color: themeColors[1] }}>
-                {currencySymbol}{addThousandsSeparator(amountPaid)} paid of {currencySymbol}
+                {currencySymbol}
+                {addThousandsSeparator(amountPaid)} paid of {currencySymbol}
                 {addThousandsSeparator(invoice.total ?? 0)}
               </p>
             )}
@@ -241,19 +253,19 @@ const TemplateTwo = ({
                 className="px-4 py-3 text-left text-[10px] uppercase tracking-widest font-bold rounded-l-lg"
                 style={{ color: themeColors[1] }}
               >
-                Description
+                {itemLabels.name}
               </th>
               <th
                 className="px-4 py-3 text-center text-[10px] uppercase tracking-widest font-bold"
                 style={{ color: themeColors[1] }}
               >
-                Qty
+                {itemLabels.quantity}
               </th>
               <th
                 className="px-4 py-3 text-right text-[10px] uppercase tracking-widest font-bold"
                 style={{ color: themeColors[1] }}
               >
-                Unit Price
+                {itemLabels.unitPrice}
               </th>
               <th
                 className="px-4 py-3 text-right text-[10px] uppercase tracking-widest font-bold rounded-r-lg"
@@ -273,7 +285,8 @@ const TemplateTwo = ({
                   {item.quantity}
                 </td>
                 <td className="px-4 py-3 text-right text-sm text-slate-500">
-                  {currencySymbol}{addThousandsSeparator(item.unitPrice)}
+                  {currencySymbol}
+                  {addThousandsSeparator(item.unitPrice)}
                 </td>
                 <td className="px-4 py-3 text-right text-sm font-semibold text-slate-800">
                   {currencySymbol}
@@ -294,11 +307,17 @@ const TemplateTwo = ({
           <div className="w-60">
             <div className="flex justify-between py-1.5 text-xs text-slate-500">
               <span>Subtotal</span>
-              <span>{currencySymbol}{addThousandsSeparator(invoice.subtotal ?? 0)}</span>
+              <span>
+                {currencySymbol}
+                {addThousandsSeparator(invoice.subtotal ?? 0)}
+              </span>
             </div>
             <div className="flex justify-between py-1.5 text-xs text-slate-500">
               <span>Tax</span>
-              <span>{currencySymbol}{addThousandsSeparator(invoice.taxTotal ?? 0)}</span>
+              <span>
+                {currencySymbol}
+                {addThousandsSeparator(invoice.taxTotal ?? 0)}
+              </span>
             </div>
             <div
               className="flex justify-between py-3 px-4 mt-2 rounded-xl text-sm font-bold"
@@ -308,7 +327,10 @@ const TemplateTwo = ({
               }}
             >
               <span>Total Due</span>
-              <span>{currencySymbol}{addThousandsSeparator(invoice.total ?? 0)}</span>
+              <span>
+                {currencySymbol}
+                {addThousandsSeparator(invoice.total ?? 0)}
+              </span>
             </div>
 
             {isPartiallyPaid && (
@@ -321,14 +343,20 @@ const TemplateTwo = ({
                   style={{ color: themeColors[1] }}
                 >
                   <span>Amount Paid</span>
-                  <span>{currencySymbol}{addThousandsSeparator(amountPaid)}</span>
+                  <span>
+                    {currencySymbol}
+                    {addThousandsSeparator(amountPaid)}
+                  </span>
                 </div>
                 <div
                   className="flex justify-between text-xs font-bold"
                   style={{ color: themeColors[4] }}
                 >
                   <span>Balance Due</span>
-                  <span>{currencySymbol}{addThousandsSeparator(balanceDue)}</span>
+                  <span>
+                    {currencySymbol}
+                    {addThousandsSeparator(balanceDue)}
+                  </span>
                 </div>
               </div>
             )}

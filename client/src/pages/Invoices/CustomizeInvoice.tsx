@@ -27,13 +27,13 @@ const CustomizeInvoice = () => {
 
   // State initialization
   const [selectedTemplate, setSelectedTemplate] = useState<string>(
-    () => user?.invoicePreferences?.templateId ?? "01"
+    () => user?.invoicePreferences?.templateId ?? "01",
   );
   const [selectedPalette, setSelectedPalette] = useState(
     () =>
       COLOR_PALETTES.find(
-        (p) => p.id === user?.invoicePreferences?.paletteId
-      ) ?? COLOR_PALETTES[0]
+        (p) => p.id === user?.invoicePreferences?.paletteId,
+      ) ?? COLOR_PALETTES[0],
   );
   const [itemLabels, setItemLabels] = useState<ItemLabels>(() => ({
     ...DEFAULT_ITEM_LABELS,
@@ -51,7 +51,10 @@ const CustomizeInvoice = () => {
       for (const entry of entries) {
         const availableWidth = entry.contentRect.width - 32; // Include padding buffer
         if (availableWidth > 0) {
-          const calculatedScale = Math.min(1, availableWidth / TARGET_INVOICE_WIDTH);
+          const calculatedScale = Math.min(
+            1,
+            availableWidth / TARGET_INVOICE_WIDTH,
+          );
           setPreviewScale(calculatedScale);
         }
       }
@@ -75,7 +78,7 @@ const CustomizeInvoice = () => {
       Object.entries(itemLabels).map(([key, value]) => [
         key,
         value.trim() || DEFAULT_ITEM_LABELS[key as keyof ItemLabels],
-      ])
+      ]),
     ) as ItemLabels;
 
     try {
@@ -105,7 +108,8 @@ const CustomizeInvoice = () => {
             Invoice Studio
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Personalize your invoices with modern templates, custom branding, and flexible labels.
+            Personalize your invoices with modern templates, custom branding,
+            and flexible labels.
           </p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -232,7 +236,8 @@ const CustomizeInvoice = () => {
                     Color Schemes
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Colors automatically apply to headings, borders, and status tags.
+                    Colors automatically apply to headings, borders, and status
+                    tags.
                   </p>
                 </div>
 
@@ -360,6 +365,7 @@ const CustomizeInvoice = () => {
                 background: selectedPalette.background,
               }}
               containerWidth={TARGET_INVOICE_WIDTH}
+              itemLabels={itemLabels}
             />
           </div>
         </div>

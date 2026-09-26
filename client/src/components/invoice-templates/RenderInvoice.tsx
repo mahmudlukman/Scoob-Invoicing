@@ -2,7 +2,8 @@ import React from "react";
 import TemplateOne from "./TemplateOne";
 import TemplateTwo from "./TemplateTwo";
 import TemplateThree from "./TemplateThree";
-import type { Invoice, InvoiceFormData } from "../../@types";
+import type { Invoice, InvoiceFormData, ItemLabels } from "../../@types";
+import { DEFAULT_ITEM_LABELS } from "../../@types";
 
 interface RenderInvoiceProps {
   templateId: string;
@@ -13,6 +14,9 @@ interface RenderInvoiceProps {
     background: string;
   };
   containerWidth: number;
+  // Optional so existing callers that haven't been updated yet still compile
+  // and fall back to the stock labels.
+  itemLabels?: ItemLabels;
 }
 
 const RenderInvoice: React.FC<RenderInvoiceProps> = ({
@@ -20,6 +24,7 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
   invoice,
   colorPalette,
   containerWidth,
+  itemLabels = DEFAULT_ITEM_LABELS,
 }) => {
   const colorPaletteArray: string[] = [
     colorPalette.background,
@@ -39,6 +44,7 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
             invoice={invoice}
             colorPalette={colorPaletteArray}
             containerWidth={containerWidth}
+            itemLabels={itemLabels}
           />
         );
         break;
@@ -48,6 +54,7 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
             invoice={invoice}
             colorPalette={colorPaletteArray}
             containerWidth={containerWidth}
+            itemLabels={itemLabels}
           />
         );
         break;
@@ -57,6 +64,7 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
             invoice={invoice}
             colorPalette={colorPaletteArray}
             containerWidth={containerWidth}
+            itemLabels={itemLabels}
           />
         );
         break;
@@ -66,6 +74,7 @@ const RenderInvoice: React.FC<RenderInvoiceProps> = ({
             invoice={invoice}
             colorPalette={colorPaletteArray}
             containerWidth={containerWidth}
+            itemLabels={itemLabels}
           />
         );
     }

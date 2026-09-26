@@ -5,7 +5,12 @@ import {
   getStatusColor,
   getCurrencySymbol,
 } from "../../utils/invoiceHelpers";
-import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
+import type {
+  InvoiceTemplateData,
+  InvoiceItem,
+  ItemLabels,
+} from "../../@types";
+import { DEFAULT_ITEM_LABELS } from "../../@types";
 
 const DEFAULT_THEME = ["#F0FDF4", "#16A34A", "#DCFCE7", "#15803D", "#1E293B"];
 
@@ -13,12 +18,14 @@ interface InvoiceTemplateOneProps {
   invoice: InvoiceTemplateData;
   colorPalette?: string[];
   containerWidth: number;
+  itemLabels?: ItemLabels;
 }
 
 const TemplateOne = ({
   invoice,
   colorPalette,
   containerWidth,
+  itemLabels = DEFAULT_ITEM_LABELS,
 }: InvoiceTemplateOneProps) => {
   const themeColors =
     (colorPalette ?? []).length > 0 ? colorPalette! : DEFAULT_THEME;
@@ -211,19 +218,19 @@ const TemplateOne = ({
                   className="pb-2 text-left text-[10px] uppercase tracking-widest font-bold"
                   style={{ color: themeColors[1] }}
                 >
-                  Description
+                  {itemLabels.name}
                 </th>
                 <th
                   className="pb-2 text-center text-[10px] uppercase tracking-widest font-bold"
                   style={{ color: themeColors[1] }}
                 >
-                  Qty
+                  {itemLabels.quantity}
                 </th>
                 <th
                   className="pb-2 text-right text-[10px] uppercase tracking-widest font-bold"
                   style={{ color: themeColors[1] }}
                 >
-                  Unit Price
+                  {itemLabels.unitPrice}
                 </th>
                 <th
                   className="pb-2 text-right text-[10px] uppercase tracking-widest font-bold"

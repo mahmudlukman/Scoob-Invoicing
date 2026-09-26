@@ -23,6 +23,7 @@ import {
   useAddPaymentMutation,
 } from "../../redux/features/invoice/invoiceApi";
 import type { InvoiceFormData, Payment, ServerError } from "../../@types";
+import { DEFAULT_ITEM_LABELS } from "../../@types";
 import Loading from "../../components/ui/Loading";
 import { useReactToPrint } from "react-to-print";
 import RenderInvoice from "../../components/invoice-templates/RenderInvoice";
@@ -53,6 +54,10 @@ const InvoiceDetail = () => {
   const templateId = user?.invoicePreferences?.templateId ?? "01";
   const colorPalette =
     user?.invoicePreferences?.colorPalette ?? DEFAULT_PALETTE;
+  const itemLabels = {
+    ...DEFAULT_ITEM_LABELS,
+    ...user?.invoicePreferences?.itemLabels,
+  };
 
   const { data: invoiceResponse, isLoading, isError } = useGetInvoiceQuery(id);
   const [updateInvoice] = useUpdateInvoiceMutation();
@@ -293,6 +298,7 @@ const InvoiceDetail = () => {
                 invoice={invoiceWithLogo}
                 colorPalette={colorPalette}
                 containerWidth={INVOICE_WIDTH}
+                itemLabels={itemLabels}
               />
             </div>
           </div>

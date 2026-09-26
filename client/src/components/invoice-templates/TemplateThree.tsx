@@ -5,7 +5,12 @@ import {
   getStatusColor,
   getCurrencySymbol,
 } from "../../utils/invoiceHelpers";
-import type { InvoiceTemplateData, InvoiceItem } from "../../@types";
+import type {
+  InvoiceTemplateData,
+  InvoiceItem,
+  ItemLabels,
+} from "../../@types";
+import { DEFAULT_ITEM_LABELS } from "../../@types";
 
 const DEFAULT_THEME = ["#FAFAF9", "#D97706", "#FEF3C7", "#92400E", "#1C1917"];
 
@@ -13,12 +18,14 @@ interface InvoiceTemplateThreeProps {
   invoice: InvoiceTemplateData;
   colorPalette?: string[];
   containerWidth: number;
+  itemLabels?: ItemLabels;
 }
 
 const TemplateThree = ({
   invoice,
   colorPalette,
   containerWidth,
+  itemLabels = DEFAULT_ITEM_LABELS,
 }: InvoiceTemplateThreeProps) => {
   const themeColors =
     (colorPalette ?? []).length > 0 ? colorPalette! : DEFAULT_THEME;
@@ -216,7 +223,7 @@ const TemplateThree = ({
                     borderBottom: `1px solid ${themeColors[1]}`,
                   }}
                 >
-                  Item
+                  {itemLabels.name}
                 </th>
                 <th
                   className="py-2.5 text-center text-[9px] uppercase tracking-[0.2em] font-bold"
@@ -225,7 +232,7 @@ const TemplateThree = ({
                     borderBottom: `1px solid ${themeColors[1]}`,
                   }}
                 >
-                  Qty
+                  {itemLabels.quantity}
                 </th>
                 <th
                   className="py-2.5 text-right text-[9px] uppercase tracking-[0.2em] font-bold"
@@ -234,7 +241,7 @@ const TemplateThree = ({
                     borderBottom: `1px solid ${themeColors[1]}`,
                   }}
                 >
-                  Rate
+                  {itemLabels.unitPrice}
                 </th>
                 <th
                   className="py-2.5 text-right text-[9px] uppercase tracking-[0.2em] font-bold"
