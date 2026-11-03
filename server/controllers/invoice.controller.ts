@@ -37,7 +37,12 @@ interface ComputedTotals {
   total: number;
 }
 
-const ALLOWED_MANUAL_STATUSES = ["Paid", "Partially Paid", "Unpaid", "Pending"] as const;
+const ALLOWED_MANUAL_STATUSES = [
+  "Paid",
+  "Partially Paid",
+  "Unpaid",
+  "Pending",
+] as const;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -628,21 +633,30 @@ export const getIncomeByMonth = catchAsyncError(
     const endDate = new Date(year + 1, 0, 1);
 
     const rawIncomeByMonth = await Invoice.aggregate([
+      // Cheap pre-filter so we only unwind invoices that have payments in range
       {
         $match: {
           user: user?._id,
-          status: "Paid",
-          createdAt: { $gte: startDate, $lt: endDate },
+          payments: { $elemMatch: { date: { $gte: startDate, $lt: endDate } } },
         },
       },
+      { $unwind: "$payments" },
+      // Re-filter after unwinding: an invoice may have payments in other years
+      { $match: { "payments.date": { $gte: startDate, $lt: endDate } } },
       {
         $group: {
           _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
+            year: { $year: "$payments.date" },
+            month: { $month: "$payments.date" },
           },
-          income: { $sum: "$total" },
-          invoiceCount: { $sum: 1 },
+          income: { $sum: "$payments.amount" },
+          invoices: { $addToSet: "$_id" }, // distinct invoices paid toward
+        },
+      },
+      {
+        $project: {
+          income: 1,
+          invoiceCount: { $size: "$invoices" },
         },
       },
     ]);
