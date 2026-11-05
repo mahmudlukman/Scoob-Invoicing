@@ -126,8 +126,16 @@ const Footer = () => {
         <div className="border-t border-slate-900/60 pt-8 mt-4">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <p className="text-xs text-slate-500">
-              &copy; {new Date().getFullYear()} Skoob Invoice. Engineered with
-              precision. All rights reserved.
+              &copy; {new Date().getFullYear()} Skoob Invoice. Engineered by
+              <a
+                href="https://www.codepence.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300"
+              >
+                Codepence.
+              </a>
+              All rights reserved.
             </p>
 
             {/* Social handles with dynamic interactions */}
