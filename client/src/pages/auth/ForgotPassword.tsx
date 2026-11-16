@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useForgotPasswordMutation } from "../../redux/features/auth/authApi";
 import {
   validateForgotPasswordForm,
   getAuthErrorMessage,
 } from "../../utils/authValidation";
 import Input from "../../components/inputs/Input";
+import ResetPassword from "./ResetPassword";
 
 interface ForgotPasswordProps {
   setCurrentPage: (page: string) => void;
@@ -13,8 +14,14 @@ interface ForgotPasswordProps {
 const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [step, setStep] = useState<"email" | "reset">("email");
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
+
+  const handleBack = useCallback(() => setStep("email"), []);
+  const handleDone = useCallback(
+    () => setCurrentPage("login"),
+    [setCurrentPage],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,18 +35,31 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
     setError(null);
 
     try {
-      const res = await forgotPassword({ email: email.trim() }).unwrap();
-      setSuccess(res?.message || "Password reset link sent! Check your inbox.");
+      await forgotPassword({ email: email.trim().toLowerCase() }).unwrap();
+      // The server always answers with the same generic message, whether or
+      // not the account exists, so we always continue to the code step.
+      setStep("reset");
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     }
   };
 
+  if (step === "reset") {
+    return (
+      <ResetPassword
+        email={email.trim().toLowerCase()}
+        onBack={handleBack}
+        onDone={handleDone}
+      />
+    );
+  }
+
   return (
     <div className="w-[90vw] md:w-[33vw] p-7 flex flex-col justify-center">
       <h3 className="text-lg font-semibold text-black">Welcome Back</h3>
       <p className="text-xs text-slate-700 mt-[5px] mb-6">
-        Please enter your email to reset your password
+        Enter your email and we'll send you a 6-digit code to reset your
+        password
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -52,16 +72,13 @@ const ForgotPassword = ({ setCurrentPage }: ForgotPasswordProps) => {
         />
 
         {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
-        {success && (
-          <p className="text-green-600 text-xs pb-2.5 py-2">{success}</p>
-        )}
 
         <button
           type="submit"
-          className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all duration-200 hover:scale-105 hover:shadow-lg text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer"
+          className="bg-gradient-to-r from-blue-950 to-blue-900 hover:bg-gray-800 transition-all duration-200 hover:scale-105 hover:shadow-lg text-white w-full py-2 my-3 text-sm rounded-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isLoading}
         >
-          {isLoading ? "Sending..." : "Send Reset Password Link"}
+          {isLoading ? "Sending..." : "Send Reset Code"}
         </button>
 
         <p className="text-[13px] text-slate-800 mt-3">

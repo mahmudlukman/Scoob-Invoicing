@@ -1,8 +1,8 @@
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt, { Secret } from "jsonwebtoken";
 import { NextFunction, Request, Response } from "express";
-import User, { IUser } from "../models/User";
+import User from "../models/User";
+import PendingUser from "../models/PendingUser";
 import ErrorHandler from "../utils/errorHandler";
 import { catchAsyncError } from "../middleware/catchAsyncErrors";
 import sendMail from "../utils/sendMail";
@@ -11,6 +11,15 @@ import {
   refreshTokenOptions,
   sendToken,
 } from "../utils/jwtToken";
+import {
+  OTP_MAX_ATTEMPTS,
+  OTP_RESEND_COOLDOWN_MS,
+  OTP_TTL_MS,
+  generateOtp,
+  hashOtp,
+  isValidOtpFormat,
+  otpMatches,
+} from "../utils/otp";
 import config from "../config";
 
 const disposableDomains = [
@@ -28,22 +37,24 @@ const disposableDomains = [
 
 const MIN_PASSWORD_LENGTH = 6;
 const MAX_PASSWORD_LENGTH = 20;
+const OTP_EXPIRES_IN_MINUTES = OTP_TTL_MS / 60000;
 
 const isValidPasswordLength = (password: string): boolean =>
   password.length >= MIN_PASSWORD_LENGTH &&
   password.length <= MAX_PASSWORD_LENGTH;
 
+// Dev helper: never return the code in the API response, just log it.
+const logOtpInDev = (label: string, email: string, otp: string): void => {
+  if (config.NODE_ENV !== "production") {
+    console.log(`[DEV] ${label} code for ${email}: ${otp}`);
+  }
+};
+
 // --------------------------------------------------
 // Register user
 // --------------------------------------------------
 
-interface ICreateUser {
-  name: string;
-  email: string;
-  password: string;
-}
-
-// @desc       Register new user
+// @desc       Register new user (sends a 6-digit activation code)
 // @route      POST /api/register
 // @access     public
 export const createUser = catchAsyncError(
@@ -56,7 +67,7 @@ export const createUser = catchAsyncError(
       );
     }
 
-    const emailLowerCase = email.toLowerCase().trim();
+    const emailLowerCase = String(email).toLowerCase().trim();
 
     if (!isValidPasswordLength(password)) {
       return next(
@@ -80,116 +91,204 @@ export const createUser = catchAsyncError(
       );
     }
 
+    // Resend cooldown for an existing pending signup
+    const existingPending = await PendingUser.findOne({
+      email: emailLowerCase,
+    });
+    if (
+      existingPending &&
+      Date.now() - existingPending.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      return next(
+        new ErrorHandler(
+          "Please wait a minute before requesting a new code",
+          429,
+        ),
+      );
+    }
+
+    const otp = generateOtp();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user: ICreateUser = {
-      name,
-      email: emailLowerCase,
-      password: hashedPassword,
-    };
+    await PendingUser.findOneAndUpdate(
+      { email: emailLowerCase },
+      {
+        name,
+        password: hashedPassword,
+        otpHash: hashOtp(otp, "activation", emailLowerCase),
+        attempts: 0,
+        lastSentAt: new Date(),
+        expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      },
+      { upsert: true, new: true },
+    );
 
-    const activationToken = createActivationToken(user);
-    const activationUrl = `${config.FRONTEND_URL}/activation/${activationToken}`;
-    const data = { user: { name: user.name }, activationUrl };
+    logOtpInDev("Activation", emailLowerCase, otp);
 
     try {
       await sendMail({
-        email: user.email,
-        subject: "Activate your account",
+        email: emailLowerCase,
+        subject: "Your activation code",
         template: "activation-mail.ejs",
-        data,
+        data: {
+          user: { name },
+          otp,
+          expiresInMinutes: OTP_EXPIRES_IN_MINUTES,
+        },
       });
 
       res.status(201).json({
         success: true,
-        message: `Please check your email: ${user.email} to activate your account!`,
-        ...(config.NODE_ENV !== "production" && { activationToken }),
+        message: `We sent a 6-digit code to ${emailLowerCase}`,
       });
     } catch (error: any) {
+      await PendingUser.deleteOne({ email: emailLowerCase });
       return next(
         new ErrorHandler(
           `Failed to send activation email: ${error.message}`,
-          400,
+          500,
         ),
       );
     }
   },
 );
 
-// Signs the activation payload.
-export const createActivationToken = (user: ICreateUser): string => {
-  return jwt.sign(
-    { user, purpose: "activation" },
-    config.ACTIVATION_SECRET as Secret,
-    { expiresIn: "5m" },
-  );
-};
+// @desc       Resend activation code
+// @route      POST /api/resend-activation
+// @access     public
+export const resendActivationOtp = catchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body;
 
-// @desc       Activate new user
+    if (!email) {
+      return next(new ErrorHandler("Please provide your email", 400));
+    }
+
+    const emailLowerCase = String(email).toLowerCase().trim();
+
+    const pending = await PendingUser.findOne({ email: emailLowerCase });
+    if (!pending) {
+      return next(
+        new ErrorHandler(
+          "No pending signup found for this email. Please sign up again.",
+          400,
+        ),
+      );
+    }
+
+    if (Date.now() - pending.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+      return next(
+        new ErrorHandler(
+          "Please wait a minute before requesting a new code",
+          429,
+        ),
+      );
+    }
+
+    const otp = generateOtp();
+
+    pending.otpHash = hashOtp(otp, "activation", emailLowerCase);
+    pending.attempts = 0;
+    pending.lastSentAt = new Date();
+    pending.expiresAt = new Date(Date.now() + OTP_TTL_MS);
+    await pending.save();
+
+    logOtpInDev("Activation", emailLowerCase, otp);
+
+    try {
+      await sendMail({
+        email: emailLowerCase,
+        subject: "Your activation code",
+        template: "activation-mail.ejs",
+        data: {
+          user: { name: pending.name },
+          otp,
+          expiresInMinutes: OTP_EXPIRES_IN_MINUTES,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `We sent a new 6-digit code to ${emailLowerCase}`,
+      });
+    } catch (error: any) {
+      return next(
+        new ErrorHandler(
+          "Failed to send activation email. Please try again.",
+          500,
+        ),
+      );
+    }
+  },
+);
+
+// @desc       Activate new user with the 6-digit code
 // @route      POST /api/activate-user
 // @access     public
 interface IActivationRequest {
-  activation_token: string;
+  email: string;
+  otp: string;
 }
 
 export const activateUser = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { activation_token } = req.body as IActivationRequest;
+    const { email, otp } = req.body as IActivationRequest;
 
-    if (!activation_token) {
-      return next(new ErrorHandler("Please provide activation token", 400));
+    if (!email || !otp) {
+      return next(new ErrorHandler("Please provide email and code", 400));
     }
 
-    let decoded: {
-      user: ICreateUser;
-      purpose: string;
-    };
+    const emailLowerCase = String(email).toLowerCase().trim();
 
-    // Verify activation token
-    try {
-      decoded = jwt.verify(
-        activation_token,
-        config.ACTIVATION_SECRET as string,
-      ) as {
-        user: ICreateUser;
-        purpose: string;
-      };
-    } catch (error: any) {
-      if (error.name === "TokenExpiredError") {
-        return next(
-          new ErrorHandler(
-            "Activation link has expired. Please sign up again.",
-            400,
-          ),
-        );
-      }
-
-      return next(new ErrorHandler("Invalid activation token", 400));
+    if (!isValidOtpFormat(otp)) {
+      return next(new ErrorHandler("Code must be 6 digits", 400));
     }
 
-    if (decoded.purpose !== "activation") {
-      return next(new ErrorHandler("Invalid activation token", 400));
+    // Count the attempt atomically BEFORE comparing, so parallel requests
+    // can't get extra guesses.
+    const pending = await PendingUser.findOneAndUpdate(
+      { email: emailLowerCase, expiresAt: { $gt: new Date() } },
+      { $inc: { attempts: 1 } },
+      { new: true },
+    );
+
+    if (!pending) {
+      return next(
+        new ErrorHandler("Code expired or invalid. Please sign up again.", 400),
+      );
     }
 
-    const { name, email, password } = decoded.user;
+    if (pending.attempts > OTP_MAX_ATTEMPTS) {
+      await pending.deleteOne();
+      return next(
+        new ErrorHandler("Too many attempts. Please sign up again.", 429),
+      );
+    }
+
+    if (
+      !otpMatches(pending.otpHash, hashOtp(otp, "activation", emailLowerCase))
+    ) {
+      return next(new ErrorHandler("Invalid code", 400));
+    }
 
     // Prevent duplicate account creation
-    const existingUser = await User.findOne({ email });
-
+    const existingUser = await User.findOne({ email: emailLowerCase });
     if (existingUser) {
+      await pending.deleteOne();
       return next(new ErrorHandler("User already exist", 400));
     }
 
-    // Create the user
+    // Create the user (password is already hashed)
     const newUser = new User({
-      name,
-      email,
-      password,
+      name: pending.name,
+      email: pending.email,
+      password: pending.password,
     });
 
     newUser.$locals.skipHash = true;
 
     await newUser.save();
+    await pending.deleteOne();
 
     try {
       await sendMail({
@@ -353,7 +452,7 @@ export const refreshAccessToken = catchAsyncError(
   },
 );
 
-// @desc       Forgot password
+// @desc       Forgot password (sends a 6-digit reset code)
 // @route      POST /api/forgot-password
 // @access     public
 export const forgotPassword = catchAsyncError(
@@ -363,40 +462,52 @@ export const forgotPassword = catchAsyncError(
       return next(new ErrorHandler("Please provide a valid email!", 400));
     }
 
-    const emailLowerCase = email.toLowerCase().trim();
-    const user = await User.findOne({ email: emailLowerCase });
+    const emailLowerCase = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: emailLowerCase }).select(
+      "+resetPasswordToken",
+    );
 
-    const genericMessage = `If an account exists for ${email}, a password reset link has been sent.`;
+    const genericMessage = `If an account exists for ${emailLowerCase}, a 6-digit reset code has been sent.`;
 
     if (!user || !user.isActive) {
       return res.status(200).json({ success: true, message: genericMessage });
     }
 
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
+    // Resend cooldown. Return the generic message so the response doesn't
+    // reveal that the account exists.
+    if (user.resetPasswordTime) {
+      const lastSentAt = user.resetPasswordTime.getTime() - OTP_TTL_MS;
+      if (Date.now() - lastSentAt < OTP_RESEND_COOLDOWN_MS) {
+        return res.status(200).json({ success: true, message: genericMessage });
+      }
+    }
 
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordTime = new Date(Date.now() + 15 * 60 * 1000);
+    const otp = generateOtp();
+
+    user.resetPasswordToken = hashOtp(otp, "reset", user.email);
+    user.resetPasswordTime = new Date(Date.now() + OTP_TTL_MS);
+    user.resetPasswordAttempts = 0;
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `${config.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    const data = { user: { name: user.name }, resetUrl };
+    logOtpInDev("Reset", user.email, otp);
 
     try {
       await sendMail({
         email: user.email,
-        subject: "Reset your password",
+        subject: "Your password reset code",
         template: "forgot-password-mail.ejs",
-        data,
+        data: {
+          user: { name: user.name },
+          otp,
+          expiresInMinutes: OTP_EXPIRES_IN_MINUTES,
+        },
       });
 
       res.status(200).json({ success: true, message: genericMessage });
     } catch (error: any) {
       user.resetPasswordToken = undefined;
       user.resetPasswordTime = undefined;
+      user.resetPasswordAttempts = 0;
       await user.save({ validateBeforeSave: false });
 
       return next(
@@ -406,24 +517,31 @@ export const forgotPassword = catchAsyncError(
   },
 );
 
-// @desc       Reset password
+// @desc       Reset password with the 6-digit code
 // @route      POST /api/reset-password
 // @access     public
 interface IResetPassword {
+  email: string;
+  otp: string;
   newPassword: string;
 }
 
 export const resetPassword = catchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { token } = req.query;
-    const { newPassword } = req.body as IResetPassword;
+    const { email, otp, newPassword } = req.body as IResetPassword;
 
-    if (!token || typeof token !== "string") {
-      return next(new ErrorHandler("Reset token is required", 400));
+    if (!email || !otp) {
+      return next(new ErrorHandler("Please provide email and code", 400));
     }
 
     if (!newPassword) {
       return next(new ErrorHandler("Please provide a new password", 400));
+    }
+
+    const emailLowerCase = String(email).toLowerCase().trim();
+
+    if (!isValidOtpFormat(otp)) {
+      return next(new ErrorHandler("Code must be 6 digits", 400));
     }
 
     const trimmedPassword = newPassword.trim();
@@ -436,15 +554,34 @@ export const resetPassword = catchAsyncError(
       );
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    // Count the attempt atomically BEFORE comparing.
+    const user = await User.findOneAndUpdate(
+      { email: emailLowerCase, resetPasswordTime: { $gt: new Date() } },
+      { $inc: { resetPasswordAttempts: 1 } },
+      { new: true },
+    ).select("+password +resetPasswordToken");
 
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordTime: { $gt: new Date() },
-    }).select("+password");
+    if (!user || !user.resetPasswordToken) {
+      return next(new ErrorHandler("Invalid or expired code", 400));
+    }
 
-    if (!user) {
-      return next(new ErrorHandler("Invalid or expired reset token", 400));
+    if ((user.resetPasswordAttempts ?? 0) > OTP_MAX_ATTEMPTS) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordTime = undefined;
+      user.resetPasswordAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+      return next(
+        new ErrorHandler("Too many attempts. Please request a new code.", 429),
+      );
+    }
+
+    if (
+      !otpMatches(
+        user.resetPasswordToken,
+        hashOtp(otp, "reset", emailLowerCase),
+      )
+    ) {
+      return next(new ErrorHandler("Invalid or expired code", 400));
     }
 
     if (!user.isActive) {
@@ -469,6 +606,7 @@ export const resetPassword = catchAsyncError(
     user.password = trimmedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordTime = undefined;
+    user.resetPasswordAttempts = 0;
     await user.save();
 
     res.status(200).json({

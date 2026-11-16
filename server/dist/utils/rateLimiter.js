@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.invoiceWriteLimiter = exports.adminListLimiter = exports.uploadLimiter = exports.updatePasswordLimiter = exports.refreshLimiter = exports.resetPasswordLimiter = exports.forgotPasswordLimiter = exports.activateLimiter = exports.registerLimiter = exports.loginLimiter = exports.limiter = void 0;
+exports.invoiceWriteLimiter = exports.adminListLimiter = exports.uploadLimiter = exports.updatePasswordLimiter = exports.refreshLimiter = exports.resetPasswordLimiter = exports.forgotPasswordLimiter = exports.resendActivationLimiter = exports.activateLimiter = exports.registerLimiter = exports.loginLimiter = exports.limiter = void 0;
 const express_rate_limit_1 = require("express-rate-limit");
 // app-wide limiter — global backstop for all routes
 exports.limiter = (0, express_rate_limit_1.rateLimit)({
@@ -34,7 +34,8 @@ exports.registerLimiter = (0, express_rate_limit_1.rateLimit)({
         error: "Too many accounts created, please try again later.",
     },
 });
-// Activation token verification — token is guessable-ish via JWT brute force / replay attempts
+// Activation code verification — 6-digit codes are guessable, so cap attempts per IP.
+// (The controller also caps wrong guesses per code, so this is a second layer.)
 exports.activateLimiter = (0, express_rate_limit_1.rateLimit)({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -42,19 +43,33 @@ exports.activateLimiter = (0, express_rate_limit_1.rateLimit)({
     legacyHeaders: false,
     message: { status: 429, error: "Too many attempts, please try again later." },
 });
+// Resend activation code — sends an email, so keep it tight. Keyed by email
+// (falls back to IP) so one inbox can't be spammed from many addresses.
+exports.resendActivationLimiter = (0, express_rate_limit_1.rateLimit)({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.body?.email?.toString().toLowerCase().trim() ||
+        (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
+    message: { status: 429, error: "Too many requests, please try again later." },
+});
 // Forgot password — sends an email, classic abuse vector for spamming users' inboxes
 exports.forgotPasswordLimiter = (0, express_rate_limit_1.rateLimit)({
     windowMs: 60 * 60 * 1000,
     max: 3,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    keyGenerator: (req) => req.body?.email?.toLowerCase() || (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
+    keyGenerator: (req) => req.body?.email?.toString().toLowerCase().trim() ||
+        (0, express_rate_limit_1.ipKeyGenerator)(req.ip || ""),
     message: { status: 429, error: "Too many requests, please try again later." },
 });
-// Reset password — token/id guessing protection
+// Reset password — 6-digit code guessing protection.
+// Slightly higher than before so a user who mistypes a few times isn't locked out;
+// the controller's per-code attempt cap is the strict limit.
 exports.resetPasswordLimiter = (0, express_rate_limit_1.rateLimit)({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: 10,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: { status: 429, error: "Too many attempts, please try again later." },

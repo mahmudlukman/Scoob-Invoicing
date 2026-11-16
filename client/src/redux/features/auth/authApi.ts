@@ -1,10 +1,10 @@
 import { apiSlice } from "../api/apiSlice";
-import { userLoggedOut, userLoggedIn, userRegistration } from "./authSlice";
+import { userLoggedOut, userLoggedIn } from "./authSlice";
 import type { User } from "../../../@types";
 
 type RegistrationResponse = {
+  success: boolean;
   message: string;
-  activationToken: string;
 };
 
 type RegistrationData = {
@@ -14,7 +14,8 @@ type RegistrationData = {
 };
 
 type ActivationData = {
-  activation_token: string;
+  email: string;
+  otp: string;
 };
 
 type ActivationResponse = {
@@ -24,7 +25,7 @@ type ActivationResponse = {
 };
 
 type ResendActivationData = {
-  activation_token: string;
+  email: string;
 };
 
 type LoginData = {
@@ -43,8 +44,8 @@ type ForgotPasswordData = {
 };
 
 type ResetPasswordData = {
-  userId: string;
-  token: string;
+  email: string;
+  otp: string;
   newPassword: string;
 };
 
@@ -56,21 +57,13 @@ export const authApi = apiSlice.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
-        try {
-          const result = await queryFulfilled;
-          dispatch(userRegistration({ token: result.data.activationToken }));
-        } catch (error: unknown) {
-          console.log(error);
-        }
-      },
     }),
 
     activation: builder.mutation<ActivationResponse, ActivationData>({
-      query: ({ activation_token }) => ({
+      query: ({ email, otp }) => ({
         url: "activate-user",
         method: "POST",
-        body: { activation_token },
+        body: { email, otp },
       }),
       async onQueryStarted(_arg, { queryFulfilled, dispatch }) {
         try {
@@ -91,10 +84,10 @@ export const authApi = apiSlice.injectEndpoints({
       { success: boolean; message: string },
       ResendActivationData
     >({
-      query: ({ activation_token }) => ({
+      query: ({ email }) => ({
         url: "resend-activation",
         method: "POST",
-        body: { activation_token },
+        body: { email },
       }),
     }),
 
@@ -134,10 +127,10 @@ export const authApi = apiSlice.injectEndpoints({
       { success: boolean; message: string },
       ResetPasswordData
     >({
-      query: ({ userId, token, newPassword }) => ({
-        url: `reset-password?token=${token}&id=${userId}`,
+      query: ({ email, otp, newPassword }) => ({
+        url: "reset-password",
         method: "POST",
-        body: { newPassword },
+        body: { email, otp, newPassword },
       }),
     }),
 

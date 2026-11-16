@@ -121,8 +121,15 @@ const UserSchema = new mongoose_1.Schema({
         },
     },
     passwordChangedAt: Date,
-    resetPasswordToken: String,
+    resetPasswordToken: {
+        type: String,
+        select: false,
+    },
     resetPasswordTime: Date,
+    resetPasswordAttempts: {
+        type: Number,
+        default: 0,
+    },
 }, { minimize: false, timestamps: true });
 // Hash password
 UserSchema.pre("save", async function (next) {

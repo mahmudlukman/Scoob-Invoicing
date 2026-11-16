@@ -49,6 +49,7 @@ export interface IUser extends Document {
   passwordChangedAt?: Date;
   resetPasswordToken?: string;
   resetPasswordTime?: Date;
+  resetPasswordAttempts?: number;
   getJwtToken(): string;
   getRefreshToken(): string;
   comparePassword(enteredPassword: string): Promise<boolean>;
@@ -130,8 +131,15 @@ const UserSchema: Schema<IUser> = new Schema(
       },
     },
     passwordChangedAt: Date,
-    resetPasswordToken: String,
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
     resetPasswordTime: Date,
+    resetPasswordAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   { minimize: false, timestamps: true },
 );

@@ -3,8 +3,6 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { useTokenRefresh } from "./utils/userRefreshToken";
 import PrivateRoute from "./components/auth/PrivateRoute";
 import LandingPage from "./pages/LandingPage/LandingPage";
-import ResetPassword from "./pages/auth/ResetPassword";
-import Activation from "./pages/auth/Activation";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import AllInvoices from "./pages/Invoices/AllInvoices";
 import CreateInvoice from "./pages/Invoices/CreateInvoice";
@@ -23,8 +21,6 @@ import SettingsPage from "./pages/Settings/SettingsPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
-  { path: "/reset-password", element: <ResetPassword /> },
-  { path: "/activation/:activation_token", element: <Activation /> },
   { path: "/about", element: <AboutPage /> },
   { path: "/contact", element: <ContactPage /> },
   { path: "/privacy-policy", element: <PrivacyPolicyPage /> },

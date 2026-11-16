@@ -7,6 +7,7 @@ import {
   resetPassword,
   createUser,
   refreshAccessToken,
+  resendActivationOtp,
 } from "../controllers/auth.controller";
 import { isAuthenticated } from "../middleware/auth";
 import {
@@ -21,6 +22,7 @@ import {
   loginLimiter,
   refreshLimiter,
   registerLimiter,
+  resendActivationLimiter,
   resetPasswordLimiter,
 } from "../utils/rateLimiter";
 const authRouter = express.Router();
@@ -33,6 +35,11 @@ authRouter.post(
   createUser,
 );
 authRouter.post("/activate-user", activateLimiter, activateUser);
+authRouter.post(
+  "/resend-activation",
+  resendActivationLimiter,
+  resendActivationOtp,
+);
 authRouter.post("/login", loginLimiter, validateUserLogin, validate, loginUser);
 authRouter.get("/logout", isAuthenticated, logoutUser);
 authRouter.post("/forgot-password", forgotPasswordLimiter, forgotPassword);

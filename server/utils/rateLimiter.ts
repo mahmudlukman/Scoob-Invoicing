@@ -36,13 +36,27 @@ export const registerLimiter = rateLimit({
   },
 });
 
-// Activation token verification — token is guessable-ish via JWT brute force / replay attempts
+// Activation code verification — 6-digit codes are guessable, so cap attempts per IP.
+// (The controller also caps wrong guesses per code, so this is a second layer.)
 export const activateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: { status: 429, error: "Too many attempts, please try again later." },
+});
+
+// Resend activation code — sends an email, so keep it tight. Keyed by email
+// (falls back to IP) so one inbox can't be spammed from many addresses.
+export const resendActivationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) =>
+    req.body?.email?.toString().toLowerCase().trim() ||
+    ipKeyGenerator(req.ip || ""),
+  message: { status: 429, error: "Too many requests, please try again later." },
 });
 
 // Forgot password — sends an email, classic abuse vector for spamming users' inboxes
@@ -52,14 +66,17 @@ export const forgotPasswordLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   keyGenerator: (req) =>
-    req.body?.email?.toLowerCase() || ipKeyGenerator(req.ip || ""),
+    req.body?.email?.toString().toLowerCase().trim() ||
+    ipKeyGenerator(req.ip || ""),
   message: { status: 429, error: "Too many requests, please try again later." },
 });
 
-// Reset password — token/id guessing protection
+// Reset password — 6-digit code guessing protection.
+// Slightly higher than before so a user who mistypes a few times isn't locked out;
+// the controller's per-code attempt cap is the strict limit.
 export const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: { status: 429, error: "Too many attempts, please try again later." },

@@ -5,6 +5,7 @@ import {
   getAuthErrorMessage,
 } from "../../utils/authValidation";
 import Input from "../../components/inputs/Input";
+import VerifyEmail from "./VerifyEmail";
 
 const SignUp = ({
   setCurrentPage,
@@ -15,19 +16,16 @@ const SignUp = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [step, setStep] = useState<"form" | "verify">("form");
   const [register, { isLoading }] = useRegisterMutation();
 
   useEffect(() => {
-    if (error || success) {
-      const timer = setTimeout(() => {
-        setError(null);
-        setSuccess(null);
-      }, 5000);
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
 
       return () => clearTimeout(timer); // cleanup on unmount
     }
-  }, [error, success]);
+  }, [error]);
 
   // Handle SignUp Form Submit
   const handleSignUp = async (e: React.FormEvent) => {
@@ -41,17 +39,27 @@ const SignUp = ({
     setError(null);
 
     try {
-      const res = await register({
+      await register({
         name: fullName.trim(),
         email: email.trim(),
         password,
       }).unwrap();
 
-      setSuccess(res?.message || "Registration successful!");
+      // Code sent — move to the verification step inside the same modal
+      setStep("verify");
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     }
   };
+
+  if (step === "verify") {
+    return (
+      <VerifyEmail
+        email={email.trim().toLowerCase()}
+        onBack={() => setStep("form")}
+      />
+    );
+  }
 
   return (
     <div className="w-[90vw] md:w-[33vw] p-7 flex flex-col justify-center">
@@ -88,9 +96,6 @@ const SignUp = ({
         </div>
 
         {error && <p className="text-red-500 text-xs pb-2.5 py-2">{error}</p>}
-        {success && (
-          <p className="text-green-600 text-xs pb-2.5 py-2">{success}</p>
-        )}
 
         <button
           type="submit"

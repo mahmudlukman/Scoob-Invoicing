@@ -11,6 +11,7 @@ const rateLimiter_1 = require("../utils/rateLimiter");
 const authRouter = express_1.default.Router();
 authRouter.post("/register", rateLimiter_1.registerLimiter, validator_1.validateUserRegistration, validator_1.validate, auth_controller_1.createUser);
 authRouter.post("/activate-user", rateLimiter_1.activateLimiter, auth_controller_1.activateUser);
+authRouter.post("/resend-activation", rateLimiter_1.resendActivationLimiter, auth_controller_1.resendActivationOtp);
 authRouter.post("/login", rateLimiter_1.loginLimiter, validator_1.validateUserLogin, validator_1.validate, auth_controller_1.loginUser);
 authRouter.get("/logout", auth_1.isAuthenticated, auth_controller_1.logoutUser);
 authRouter.post("/forgot-password", rateLimiter_1.forgotPasswordLimiter, auth_controller_1.forgotPassword);
