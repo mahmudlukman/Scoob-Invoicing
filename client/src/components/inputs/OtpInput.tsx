@@ -21,12 +21,19 @@ const OtpInput = ({
 }: OtpInputProps) => {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Always holds the latest value, even before React re-renders. Handlers read
+  // from this (not from the `value` prop) so focus changes made right after a
+  // keystroke never see stale data.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const focusBox = (index: number) => {
     const target = Math.max(0, Math.min(index, length - 1));
     inputsRef.current[target]?.focus();
   };
 
   const update = (next: string, focusIndex: number) => {
+    valueRef.current = next; // update immediately, before the re-render
     onChange(next);
     if (next.length === length) onComplete?.(next);
     focusBox(focusIndex);
@@ -48,12 +55,13 @@ const OtpInput = ({
   }, [hasError]);
 
   const handleChange = (index: number, raw: string) => {
+    const current = valueRef.current;
     const digits = raw.replace(/\D/g, "");
-    const existing = value[index] ?? "";
+    const existing = current[index] ?? "";
 
     // Deleted a digit
     if (!digits) {
-      update(value.slice(0, index) + value.slice(index + 1), index);
+      update(current.slice(0, index) + current.slice(index + 1), index);
       return;
     }
 
@@ -65,15 +73,15 @@ const OtpInput = ({
 
     // Autofill / multi-digit input
     if (incoming.length > 1) {
-      const next = (value.slice(0, index) + incoming).slice(0, length);
+      const next = (current.slice(0, index) + incoming).slice(0, length);
       update(next, next.length);
       return;
     }
 
     const next = (
-      value.slice(0, index) +
+      current.slice(0, index) +
       incoming +
-      value.slice(index + 1)
+      current.slice(index + 1)
     ).slice(0, length);
     update(next, index + 1);
   };
@@ -82,15 +90,17 @@ const OtpInput = ({
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if (e.key === "Backspace" && !value[index] && index > 0) {
+    const current = valueRef.current;
+
+    if (e.key === "Backspace" && !current[index] && index > 0) {
       e.preventDefault();
-      update(value.slice(0, index - 1) + value.slice(index), index - 1);
+      update(current.slice(0, index - 1) + current.slice(index), index - 1);
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       focusBox(index - 1);
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
-      focusBox(Math.min(index + 1, value.length));
+      focusBox(Math.min(index + 1, current.length));
     }
   };
 
@@ -101,7 +111,7 @@ const OtpInput = ({
     e.preventDefault();
     const digits = e.clipboardData.getData("text").replace(/\D/g, "");
     if (!digits) return;
-    const next = (value.slice(0, index) + digits).slice(0, length);
+    const next = (valueRef.current.slice(0, index) + digits).slice(0, length);
     update(next, next.length);
   };
 
@@ -111,7 +121,8 @@ const OtpInput = ({
   ) => {
     e.target.select();
     // Boxes fill left to right: never let the user land past the next empty one
-    if (index > value.length) focusBox(value.length);
+    const filled = valueRef.current.length;
+    if (index > filled) focusBox(filled);
   };
 
   return (
